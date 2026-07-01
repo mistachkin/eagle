@@ -1,9 +1,12 @@
 [submodule "docs"]
 	path = docs
 	url = https://github.com/mistachkin/docs
+	branch = trunk
 [submodule "extra"]
 	path = extra
 	url = https://github.com/mistachkin/extra
+	branch = trunk
 [submodule "eee"]
 	path = eee
 	url = https://github.com/mistachkin/eee
+	branch = trunk
