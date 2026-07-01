@@ -430,7 +430,6 @@ Keys/*Proprietary*.snk
 Keys/TestTrustRootPublic.snk
 
 # EEE library files, etc
-Library/Components/Shared/BinaryLicense.cs
 Library/Resources/Certificates/*
 Library/Tools/data/*.sfx
 
@@ -453,6 +452,7 @@ Native/Package/src/win/tea/Release*/
 # EEE plugin files, etc
 Personal/
 Plugins/
+Plugins
 
 # Extra sample plugin project files
 Sample/*_Late.csproj

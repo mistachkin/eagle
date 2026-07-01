@@ -2774,6 +2774,7 @@ namespace Eagle._Components.Private
                 BestFitMapping = false, ThrowOnUnmappableChar = true)]
             internal static extern int ansi_snprintf_double(StringBuilder buffer, UIntPtr count,
                 string format, double value);
+#endif
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -2811,7 +2812,6 @@ namespace Eagle._Components.Private
             [ObjectId("c3651c6f-b2e7-4cf9-85e3-8c87d7a5c7a6")]
             internal delegate int bolt_snprintf_double(StringBuilder buffer, UIntPtr count,
                 string format, double value);
-#endif
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 

@@ -616,6 +616,7 @@ set eagle_manifests(source) {
   Eagle/Library/Components/Public/WebErrorCallbackBridge.cs
   Eagle/Library/Components/Public/WebTransferCallbackBridge.cs
   Eagle/Library/Components/Shared/AttributeOps.cs
+  Eagle/Library/Components/Shared/BinaryLicense.cs
   Eagle/Library/Components/Shared/Enumerations.cs
   Eagle/Library/Components/Shared/PublicKey.cs
   Eagle/Library/Components/Shared/SourceLicense.cs
@@ -3529,6 +3530,7 @@ set eagle_manifests(nuGetSource) {
   src/Library/Components/Public/WebErrorCallbackBridge.cs
   src/Library/Components/Public/WebTransferCallbackBridge.cs
   src/Library/Components/Shared/AttributeOps.cs
+  src/Library/Components/Shared/BinaryLicense.cs
   src/Library/Components/Shared/Enumerations.cs
   src/Library/Components/Shared/PublicKey.cs
   src/Library/Components/Shared/SourceLicense.cs

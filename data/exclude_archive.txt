@@ -70,6 +70,7 @@
 *\.fslckout
 *\.git\*
 *\.gitattributes
+*\.github\*
 *\.gitignore
 *\.gitmodules
 *\.komodotools\*
@@ -86,7 +87,6 @@
 *\doc\*
 *\Externals\*
 *\Keys\*.db
-*\Library\Components\Shared\BinaryLicense.cs
 *\Library\Resources\Certificates\*
 *\manifest
 *\manifest.uuid
