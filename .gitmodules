@@ -10,3 +10,19 @@
 	path = eee
 	url = https://github.com/mistachkin/eee
 	branch = trunk
+[submodule "pkgt"]
+	path = pkgt
+	url = https://github.com/mistachkin/pkgt
+	branch = trunk
+[submodule "watchCat"]
+	path = watchCat
+	url = https://github.com/mistachkin/watchCat
+	branch = trunk
+[submodule "lsp"]
+	path = lsp
+	url = https://github.com/mistachkin/eagle-lsp
+	branch = trunk
+[submodule "vplugins"]
+	path = vplugins
+	url = https://github.com/mistachkin/vplugins
+	branch = trunk
