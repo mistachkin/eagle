@@ -26482,27 +26482,41 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        //
-        // NOTE: These are the default flags for newly created interpreters.
-        //
         /// <summary>
-        /// Combination mask of the flags used by default for newly
-        /// created interpreters.
+        /// Combination mask of the flags used by default for newly created
+        /// interpreters that enable bits of "legacy" functionality.
         /// </summary>
-        Default = TemporaryPackages |
+        DefaultLegacyOnly = ReplaceEmptyListOk | LegacyOctal,
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        /// <summary>
+        /// Combination mask of the flags used by default for newly created
+        /// interpreters, excluding those that require features gated by the
+        /// NATIVE compile-time define(s) -AND- excluding those that enable
+        /// "legacy" features or functionality.
+        /// </summary>
+        DefaultManagedOnly = TemporaryPackages |
 #if NET_40
-                  AllowBigIntegers |
+                             AllowBigIntegers |
 #endif
-                  FinallyResetCancel | FinallyRestoreCancel |
-                  FinallyResetExit | FinallyRestoreExit |
-                  NoPackageUnknown | ReplaceEmptyListOk |
-                  ComplainViaTest | AllowRestricted |
-                  TclMathOperators | TclMathFunctions |
-                  LegacyOctal | StrictExpressionInteger |
-                  UsePrintfForDouble | PreDisposeScripts |
-                  SafeTiming | NoNullArgument |
-                  DebugBreakNoComplain | DoesAnythingExist |
-                  AllowProxyCallback | CacheViaArgument
+                             FinallyResetCancel | FinallyRestoreCancel |
+                             FinallyResetExit | FinallyRestoreExit |
+                             NoPackageUnknown | ComplainViaTest |
+                             AllowRestricted | TclMathOperators |
+                             TclMathFunctions | StrictExpressionInteger |
+                             PreDisposeScripts | SafeTiming |
+                             NoNullArgument | DebugBreakNoComplain |
+                             DoesAnythingExist | AllowProxyCallback |
+                             CacheViaArgument,
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        /// <summary>
+        /// Combination mask of the flags used by default for newly created
+        /// interpreters.
+        /// </summary>
+        Default = DefaultLegacyOnly | DefaultManagedOnly | UsePrintfForDouble
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////

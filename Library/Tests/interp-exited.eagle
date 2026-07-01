@@ -506,7 +506,7 @@ runTest {test interp-1.10.1 {load/save interpreter settings XML} -setup {
   $is(2) HostCreateFlags Default
   $is(2) InitializeFlags "Default, Test"
   $is(2) ScriptFlags Default
-  $is(2) InterpreterFlags Default
+  $is(2) InterpreterFlags DefaultManagedOnly
   $is(2) InterpreterTestFlags Default
   $is(2) PluginFlags Default
   $is(2) AppDomain null; # ignored, not serialized.
@@ -640,7 +640,7 @@ runTest {test interp-1.10.2 {load/save interpreter settings INI} -setup {
   $is(2) HostCreateFlags Default
   $is(2) InitializeFlags "Default, Test"
   $is(2) ScriptFlags Default
-  $is(2) InterpreterFlags Default
+  $is(2) InterpreterFlags DefaultManagedOnly
   $is(2) InterpreterTestFlags Default
   $is(2) PluginFlags Default
   $is(2) AppDomain null; # ignored, not serialized.
