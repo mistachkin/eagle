@@ -255,6 +255,45 @@ namespace Eagle._Components.Private
         [ObjectId("6dc268be-697f-41a1-98a2-be2ce602bdfe")]
         internal static class UnsafeNativeMethods
         {
+            #region Generic Native Helper Methods
+            //
+            // NOTE: This delegate matches the "bolt_snprintf_double" function
+            //       in the optional Bolt helper library (see "bolt.c").  It is
+            //       the native wrapper around the variadic snprintf() and is
+            //       used on platforms where the fixed-signature P/Invoke above
+            //       does not work (e.g. arm64 macOS).  Resolved dynamically.
+            //
+            /// <summary>
+            /// This delegate represents the native "bolt_snprintf_double"
+            /// function from the optional Bolt helper library, which wraps the
+            /// variadic snprintf() to format a double-precision floating-point
+            /// value into a buffer.
+            /// </summary>
+            /// <param name="buffer">
+            /// The buffer that receives the formatted output.
+            /// </param>
+            /// <param name="count">
+            /// The maximum number of characters to write to the buffer.
+            /// </param>
+            /// <param name="format">
+            /// The format string used to format the value.
+            /// </param>
+            /// <param name="value">
+            /// The double-precision floating-point value to be formatted.
+            /// </param>
+            /// <returns>
+            /// The number of characters that would have been written, or a
+            /// negative value if an error occurred.
+            /// </returns>
+            [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi,
+                BestFitMapping = false, ThrowOnUnmappableChar = true)]
+            [ObjectId("c3651c6f-b2e7-4cf9-85e3-8c87d7a5c7a6")]
+            internal delegate int bolt_snprintf_double(StringBuilder buffer, UIntPtr count,
+                string format, double value);
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
 #if WINDOWS
             #region Windows Dynamic Loading Methods
             /// <summary>
@@ -2775,43 +2814,6 @@ namespace Eagle._Components.Private
             internal static extern int ansi_snprintf_double(StringBuilder buffer, UIntPtr count,
                 string format, double value);
 #endif
-
-            ///////////////////////////////////////////////////////////////////////////////////////////
-
-            //
-            // NOTE: This delegate matches the "bolt_snprintf_double" function in
-            //       the optional Bolt helper library (see "bolt.c").  It is the
-            //       native wrapper around the variadic snprintf() and is used on
-            //       platforms where the fixed-signature P/Invoke above does not
-            //       work (e.g. arm64 macOS).  It is resolved dynamically.
-            //
-            /// <summary>
-            /// This delegate represents the native "bolt_snprintf_double"
-            /// function from the optional Bolt helper library, which wraps the
-            /// variadic snprintf() to format a double-precision floating-point
-            /// value into a buffer.
-            /// </summary>
-            /// <param name="buffer">
-            /// The buffer that receives the formatted output.
-            /// </param>
-            /// <param name="count">
-            /// The maximum number of characters to write to the buffer.
-            /// </param>
-            /// <param name="format">
-            /// The format string used to format the value.
-            /// </param>
-            /// <param name="value">
-            /// The double-precision floating-point value to be formatted.
-            /// </param>
-            /// <returns>
-            /// The number of characters that would have been written, or a
-            /// negative value if an error occurred.
-            /// </returns>
-            [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi,
-                BestFitMapping = false, ThrowOnUnmappableChar = true)]
-            [ObjectId("c3651c6f-b2e7-4cf9-85e3-8c87d7a5c7a6")]
-            internal delegate int bolt_snprintf_double(StringBuilder buffer, UIntPtr count,
-                string format, double value);
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
