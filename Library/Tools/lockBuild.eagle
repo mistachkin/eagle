@@ -179,7 +179,7 @@ namespace eval ::Eagle {
           "\" within file \"" $fileName \"]
     }
 
-    if {[string first $directory $data] != -1} then {
+    if {[string first [maybeLowerCase $directory] $data] != -1} then {
       return true
     } else {
       return false

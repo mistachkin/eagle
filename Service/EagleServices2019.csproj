@@ -46,7 +46,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(EagleBinaryOutputPath)' != ''">
     <OutputPath>$(EagleBinaryOutputPath)</OutputPath>
-    <DocumentationFile Condition="'$(EagleDocumentationFile)' != 'false'">$(EagleBinaryOutputPath)$(AssemblyName).xml</DocumentationFile>
+    <DocumentationFile Condition="'$(EagleDocumentationFile)' != 'false'">$(EagleDocumentationOutputPath)$(AssemblyName).xml</DocumentationFile>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugSymbols>true</DebugSymbols>

@@ -1632,8 +1632,9 @@
     <EagleSampleTargets Condition="'$(EagleSampleTargets)' == '' And ('$(MSBuildBinPath)' == '' Or HasTrailingSlash('$(MSBuildBinPath)') Or !Exists('$(MSBuildBinPath)\MSBuild.exe'))">false</EagleSampleTargets>
 
     <!--
-        NOTE: Should [XML] documentation files be produced?  By default, this is
-              disabled because it totally breaks incremental builds.
+        NOTE: Should [XML] documentation files be produced?  By default, this
+              is enabled.  Historically, it was disabled by default because it
+              could totally breaks incremental builds.
 
               Please see Microsoft Connect FeedbackID 470485 for more
               information.
@@ -1998,9 +1999,10 @@
   ******************************************************************************
   -->
 
-  <PropertyGroup Condition="'$(EagleDir)' != '' And '$(Configuration)' != ''">
+  <PropertyGroup Condition="'$(EagleDir)' != '' And '$(MSBuildProjectName)' != '' And '$(Configuration)' != ''">
     <!--
-        NOTE: The non-package final output files need to go in one place.
+        NOTE: The non-package final output files need to go in one place.  The
+              value comes from the normalized item above; see the note there.
     -->
     <EagleBinaryOutputPath Condition="'$(EagleBinaryOutputPath)' == ''">$(EagleDir)\bin\$(Configuration)$(EagleConfigurationSuffix)\bin\</EagleBinaryOutputPath>
 
@@ -2009,6 +2011,12 @@
               specific directory.
     -->
     <EaglePackageOutputPath Condition="'$(EaglePackageOutputPath)' == ''">$(EagleDir)\bin\$(Configuration)$(EagleConfigurationSuffix)\lib\$(AssemblyName)$(EaglePackageVersion)\</EaglePackageOutputPath>
+
+    <!--
+        NOTE: Where should the generated XML documentation files end up?
+    -->
+    <EagleDocumentationOutputPath Condition="'$(EagleDocumentationOutputPath)' == '' And '$(EagleConfigurationSuffix)' == ''">$(EagleDir)\obj\$(MSBuildProjectName)\$(Configuration)\</EagleDocumentationOutputPath>
+    <EagleDocumentationOutputPath Condition="'$(EagleDocumentationOutputPath)' == '' And '$(EagleConfigurationSuffix)' != ''">$(EagleDir)\obj\$(MSBuildProjectName)\$(EagleConfigurationSuffix)\$(Configuration)\</EagleDocumentationOutputPath>
 
     <!--
         NOTE: Setup the location of the library project directory relative to
