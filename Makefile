@@ -84,7 +84,8 @@ BUILD_DIRECTORY = bin/$(BUILD_SUB_DIRECTORY)/bin/$(BUILD_NET_DIRECTORY)
 BUILD_ARGS = \
     /maxcpucount:1 \
     /property:EagleBuildType=$(BUILD_TYPE) \
-    /property:EaglePatchLevel=false
+    /property:EaglePatchLevel=false \
+    /property:RestoreUseStaticGraphEvaluation=false
 
 # -----------------------------------------------------------------------------
 
@@ -170,7 +171,6 @@ restore: validate-dotnet
 add-sds-pkg: validate-dotnet
 	$(SED) 's|!-- $(DOTNET_SDS_PKG_NAME) --|PackageReference Include="$(DOTNET_SDS_PKG_NAME)" Version="$(DOTNET_SDS_PKG_VERSION)" /|' "Shell/EagleShellNetStandard2X.csproj" > "Shell/EagleShellNetStandard2X.csproj.tmp" && $(MV) Shell/EagleShellNetStandard2X.csproj.tmp Shell/EagleShellNetStandard2X.csproj
 	$(DOTNET_ENV) $(DOTNET) restore Shell/EagleShellNetStandard2X.csproj
-	$(MAKE) force-clean
 
 # =============================================================================
 #                                Build Targets

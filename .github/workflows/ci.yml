@@ -139,11 +139,11 @@ jobs:
         run: |
           SDS="$RUNNER_TEMP/System.Data.SQLite"
           git clone --depth 1 https://github.com/mistachkin/System.Data.SQLite "$SDS"
-          cd "$SDS"
+          cd "$SDS/sqlite/dotnet"
           dotnet build ./SQLite.NET.NetStandard21.MSBuild.sln /maxCpuCount:1
           sn -R ./bin/NetStandard21/DebugNetStandard21/bin/netstandard2.1/System.Data.SQLite.dll ./Keys/System.Data.SQLite.snk
           ./Setup/compile-interop-assembly-debug.sh
-          echo "SQLITE_NET_ROOT=$SDS" >> "$GITHUB_ENV"
+          echo "SQLITE_NET_ROOT=$SDS/sqlite/dotnet" >> "$GITHUB_ENV"
 
       - name: Place System.Data.SQLite assemblies next to Eagle (macOS only)
         if: runner.os == 'macOS'
