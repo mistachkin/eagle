@@ -86,11 +86,13 @@ jobs:
         if: runner.os != 'Windows'
         shell: bash
         run: |
+          # '|| true': under bash -e -o pipefail a non-existent base dir makes ls fail and
+          # (via pipefail) would abort the step before reaching the base that does exist.
           for base in /usr/local/share/dotnet/packs /usr/share/dotnet/packs /usr/lib/dotnet/packs; do
-            pack=$(ls -d "$base"/Microsoft.NETCore.App.Host.*/ 2>/dev/null | head -1)
+            pack=$(ls -d "$base"/Microsoft.NETCore.App.Host.*/ 2>/dev/null | head -1) || true
             [ -n "$pack" ] && break
           done
-          ver=$(ls "$pack" 2>/dev/null | grep '^10\.' | sort -V | tail -1)
+          ver=$(ls "$pack" 2>/dev/null | grep '^10\.' | sort -V | tail -1) || true
           [ -n "$ver" ] || { echo "no 10.x AppHost pack found under any dotnet packs dir; build-native would skip/fail"; exit 1; }
           echo "DOTNET_SDK_VERSION=$ver" >> "$GITHUB_ENV"
           echo "build-native will use host-pack version: $ver"
