@@ -48,11 +48,52 @@ jobs:
 
       - name: Install Tcl 8 for native integration tests (macOS only)
         if: runner.os == 'macOS'
-        run: brew install tcl-tk@8
+        shell: bash
+        run: |
+          brew install tcl-tk@8
+          echo "$(brew --prefix tcl-tk@8)/bin" >> "$GITHUB_PATH"
+          echo "Eagle_Tcl_Dir=$(brew --prefix tcl-tk@8)/lib" >> "$GITHUB_ENV"
+
+      - name: Install signed IronTcl for native Tcl tests (Windows only)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $url = "https://www.irontcl.com/downloads/irontcl-amd64-8.6.7.zip"
+          $zip = Join-Path $env:RUNNER_TEMP "irontcl-amd64.zip"
+          $dst = Join-Path $env:RUNNER_TEMP "irontcl"
+          Invoke-WebRequest -Uri $url -OutFile $zip
+          Expand-Archive -Path $zip -DestinationPath $dst -Force
+          $bin = Join-Path $dst "IronTcl\bin"
+          $dll = Join-Path $bin "tcl86t.dll"
+          if (-not (Test-Path $dll)) { throw "IronTcl runtime not found at $dll" }
+          $sig = Get-AuthenticodeSignature $dll
+          Add-Content -Path $env:GITHUB_ENV -Value "Eagle_Tcl_Dir=$bin"
+          Write-Host "IronTcl tcl86t.dll: status=$($sig.Status) signer=$($sig.SignerCertificate.Subject)"
+
+      - name: Install Tcl 8.6 for native integration tests (Linux only)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y tcl8.6-dev tcl
+          echo "Eagle_Tcl_Dir=/usr/lib/x86_64-linux-gnu" >> "$GITHUB_ENV"
 
       - name: Enable BigRSACryptoServiceProvider (macOS only)
         if: runner.os == 'macOS'
         run: echo "UseBigCrypto=1" >> "$GITHUB_ENV"
+
+      - name: Set DOTNET_SDK_VERSION so build-native runs (non-Windows)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          for base in /usr/local/share/dotnet/packs /usr/share/dotnet/packs /usr/lib/dotnet/packs; do
+            pack=$(ls -d "$base"/Microsoft.NETCore.App.Host.*/ 2>/dev/null | head -1)
+            [ -n "$pack" ] && break
+          done
+          ver=$(ls "$pack" 2>/dev/null | grep '^10\.' | sort -V | tail -1)
+          [ -n "$ver" ] || { echo "no 10.x AppHost pack found under any dotnet packs dir; build-native would skip/fail"; exit 1; }
+          echo "DOTNET_SDK_VERSION=$ver" >> "$GITHUB_ENV"
+          echo "build-native will use host-pack version: $ver"
 
       - name: Setup test BATCH_ID
         shell: bash
@@ -70,6 +111,28 @@ jobs:
 
       - name: Build all projects
         run: make rebuild
+
+      - name: Build Garuda native package (Windows only)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
+          if (-not $vs) { throw "Visual Studio not found via vswhere" }
+          Import-Module (Join-Path $vs 'Common7\Tools\Microsoft.VisualStudio.DevShell.dll')
+          Enter-VsDevShell -VsInstallPath $vs -DevCmdArguments '-arch=x64' -SkipAutomaticLocation
+          $env:DOTNET_SDK_PACKS_DIR = "$env:ProgramFiles\dotnet\packs"
+          $hostPack = Join-Path $env:DOTNET_SDK_PACKS_DIR 'Microsoft.NETCore.App.Host.win-x64'
+          $ver = Get-ChildItem $hostPack -Directory -Name -ErrorAction SilentlyContinue | Where-Object { $_ -like '10.*' } | Sort-Object { [version]$_ } | Select-Object -Last 1
+          if (-not $ver) { throw "no 10.x win-x64 AppHost pack under $hostPack" }
+          $env:DOTNET_SDK_VERSION = $ver
+          $env:NOSIGN = "1"
+          msbuild Native\Package\GarudaNetStandard21.vcxproj /maxcpucount:1 /property:Configuration=DebugDll /property:Platform=x64 /property:EagleBuildType=NetStandard21 /property:EaglePatchLevel=false
+          if ($LASTEXITCODE -ne 0) { throw "Garuda build failed (exit $LASTEXITCODE)" }
+          $out = "bin\x64\DebugDllNetStandard21"
+          $shellDir = "bin\DebugNetStandard21\bin\netcoreapp3.0"
+          Copy-Item "$out\GarudaCore.dll" $shellDir
+          Copy-Item "$out\*.tcl" $shellDir
+          Write-Host "Garuda: host-pack $ver, packs=$env:DOTNET_SDK_PACKS_DIR"
 
       - name: Build System.Data.SQLite assemblies (macOS only)
         if: runner.os == 'macOS'

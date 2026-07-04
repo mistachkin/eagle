@@ -170,6 +170,7 @@ restore: validate-dotnet
 add-sds-pkg: validate-dotnet
 	$(SED) 's|!-- $(DOTNET_SDS_PKG_NAME) --|PackageReference Include="$(DOTNET_SDS_PKG_NAME)" Version="$(DOTNET_SDS_PKG_VERSION)" /|' "Shell/EagleShellNetStandard2X.csproj" > "Shell/EagleShellNetStandard2X.csproj.tmp" && $(MV) Shell/EagleShellNetStandard2X.csproj.tmp Shell/EagleShellNetStandard2X.csproj
 	$(DOTNET_ENV) $(DOTNET) restore Shell/EagleShellNetStandard2X.csproj
+	$(MAKE) force-clean
 
 # =============================================================================
 #                                Build Targets
@@ -208,16 +209,16 @@ rebuild-managed: validate-dotnet add-sds-pkg
 
 # -----------------------------------------------------------------------------
 
-rebuild-native: force-clean build-native
+rebuild-native: force-full-clean build-native
 
 # -----------------------------------------------------------------------------
 
-# HACK: Always rebuild native libraries first, to force-clean.
+# HACK: Always rebuild native libraries first, to force-full-clean.
 rebuild: rebuild-native rebuild-managed
 
 build: build-native build-managed
 
-fresh: force-clean build
+fresh: force-full-clean build
 
 # =============================================================================
 #                                Clean Targets
@@ -238,16 +239,18 @@ force-clean: FORCE
 	-rm -rf Native/Package/src/generic/libGarudaCore.dylib.dSYM
 	-rm -rf Native/Utility/src/generic/libSpilornis.dylib.dSYM
 	-rm -rf Sample/obj
-	-rm -rf Service/bin
 	-rm -rf Service/obj
 	-rm -f Service/Web.config
 	-rm -rf Shell/obj
-	-rm -rf bin
 	-rm -rf obj
+
+force-full-clean: force-clean
+	-rm -rf Service/bin
+	-rm -rf bin
 
 # -----------------------------------------------------------------------------
 
-dist-clean: force-clean
+dist-clean: force-full-clean
 
 distclean: dist-clean
 
@@ -365,7 +368,8 @@ help: FORCE
 	@echo "  fresh            - Forcibly clean and then rebuild."
 	@echo ""
 	@echo "  clean            - Clean via the .NET build system."
-	@echo "  force-clean      - Forcibly remove output directories."
+	@echo "  force-clean      - Forcibly remove worthless output directories."
+	@echo "  force-full-clean - Forcibly remove all output directories."
 	@echo "  dist-clean       - Also forcibly remove output directories."
 	@echo "  distclean        - Alias for \"dist-clean\"."
 	@echo ""
