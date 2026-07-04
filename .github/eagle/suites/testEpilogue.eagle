@@ -1,0 +1,60 @@
+###############################################################################
+#
+# testEpilogue.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+# User Test Epilogue File for Monophile / Netphile / Lachrymose
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+if {[isEagle]} then {
+  apply [list [list] {
+    # <help>
+    # This procedure is used to dump complaints to the test log file at
+    # the end of a test suite run.
+    # </help>
+
+    if {[catch {
+      object invoke -flags +NonPublic \
+          Eagle._Components.Private.DebugOps complaints.Count
+    } count] == 0 && $count > 0} then {
+      if {[info exists ::test_log]} then {
+        set fileName [appendArgs $::test_log .complaints]
+      } else {
+        set fileName [appendArgs [file tempname] .complaints]
+      }
+
+      set message [appendArgs "COMPLAINTS TEST-RUN " [getTestRunTag]]
+
+      set result [object invoke -flags +NonPublic \
+          Eagle._Components.Private.DebugOps DumpComplaints "" null \
+          $fileName $message true]
+
+      if {$result > 0} then {
+        host result Ok [appendArgs \
+            ">>>> success dumping " $count " complaints to file \"" \
+            $fileName \"\n]
+      } else {
+        host result Error [appendArgs \
+            ">>>> failure dumping " $count " complaints to file \"" \
+            $fileName \"\n]
+      }
+
+      if {![info exists ::no(logRemoteComplaints)]} then {
+        logRemoteMessageFile $fileName
+      }
+
+      return $fileName
+    }
+
+    return ""
+  }]
+}
+

@@ -1,0 +1,543 @@
+###############################################################################
+#
+# test_suite_post_initialize.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+# User Test Post-Initialize File for Monophile / Netphile / Lachrymose
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+apply [list [list] {
+  if {[info exists ::env(NO_TEST_SUITE_POST_INITIALIZE)]} then {return}
+
+  #############################################################################
+
+  set pid [pid]
+
+  host result Ok [appendArgs \
+      ">>>> running process identifier is " $pid .\n]
+
+  #############################################################################
+
+  if {1} then {
+    # EntityName: NO NAME
+    set [appendArgs ::env(a30a1ea5-33fc-499b-a615-93e273ff8abb_ $pid )] \
+        1DEACD249D1C97CC9EB8B53E0012A827; # NOTE: This is not a secret.
+
+    host result Ok \
+        ">>>> forcibly set core development certificate decryption key.\n"
+
+    # EntityName: Eagle Development Team
+    set [appendArgs ::env(c3e6f922-5b39-4a8b-b43c-18c74f00571b_ $pid )] \
+        36EEAAFE585DCF682D06A3EC02C23589; # NOTE: This is not a secret.
+
+    host result Ok \
+        ">>>> forcibly set EEE development certificate decryption key.\n"
+  }
+
+  #############################################################################
+  #
+  # NOTE: Next, enable interactive input tracing, if requested.  This can be
+  #       useful for troubleshooting the "(semi)interactive" testing process,
+  #       i.e. via [debug iqueue #test] instead of [source].
+  #
+  if {[info exists ::env(FULLTRACE)]} then {
+    #
+    # BUGBUG: Why does Mono 6.12.x appear to sometimes fail to process the
+    #         [debug iqueue #test] command from the (Bash) shell script?
+    #
+    # HACK: For now, the workaround is not here; rather, the (Bash) shell
+    #       script itself now uses [debug iqueue nop] first, since that
+    #       somehow (?) appears to bypass the issue. -- 2024-04-10
+    #
+    package require Eagle.Test
+
+    enableInteractiveLoopFlags DumpCommands true
+    host result Ok ">>>> enabled dumping interactive debugger commands.\n"
+
+    enableInteractiveLoopFlags TraceInput true
+    host result Ok ">>>> enabled tracing interactive input.\n"
+
+    enableTracing
+    host result Ok ">>>> enabled full tracing.\n"
+  }
+
+  #############################################################################
+
+  if {![info exists ::env(NO_DISABLE_INTERACTIVE_TIMEOUT)]} then {
+    package require Eagle.Test
+
+    enableInteractiveLoopFlags NoTimeout true
+    host result Ok ">>>> disabled interactive loop timeout.\n"
+  }
+
+  #############################################################################
+  #
+  # NOTE: Next, load the test package.  Then, hook [getTestLog] core script
+  #       library procedure so that it will launch the external log monitor
+  #       process.
+  #
+  if {![info exists ::env(NO_EXTERNAL_LOG_MONITOR)] && \
+      [llength [info commands hookGetTestLogForWatchCat]] > 0} then {
+    package require Eagle.Test
+
+    if {![info exists ::test_channel]} then {
+      set ::test_channel stdout
+      host result Ok ">>>> set initial test output channel.\n"
+    }
+
+    if {[info exists ::eagle_debugger(watchCatLimit)]} then {
+      host result Ok [appendArgs \
+          ">>>> external log monitor idle limit is " \
+          $::eagle_debugger(watchCatLimit) " seconds.\n"]
+    }
+
+    if {[info exists ::eagle_debugger(watchCatAggressive)]} then {
+      host result Ok [appendArgs \
+          ">>>> external log monitor aggressive mode is " \
+          [expr {$::eagle_debugger(watchCatAggressive) ? \
+          "ENABLED" : "DISABLED"}] .\n]
+    }
+
+    if {[info exists ::eagle_debugger(watchCatFailSafe)]} then {
+      host result Ok [appendArgs \
+          ">>>> external log monitor fail-safe mode is " \
+          [expr {$::eagle_debugger(watchCatFailSafe) ? \
+          "ENABLED" : "DISABLED"}] .\n]
+    }
+
+    hookGetTestLogForWatchCat true true; # log-file based hang detection
+    host result Ok ">>>> enabled external log monitor (hang detection).\n"
+  }
+
+  #############################################################################
+  #
+  # BUGBUG: Remove this block when AppDomain creation / unloading works again
+  #         on Mono.  It seems to cause "intermittent" hangs when running the
+  #         Harpy and/or Badge test suites.
+  #
+  if {[isMono] && ![info exists ::env(MAYBE_MONO_ISOLATION_WORKS)]} then {
+    package require Eagle.Test
+
+    enableInterpreterTestFlags NoAppDomain true; # BUGBUG: Mono may hang?
+    host result Ok ">>>> disabled application domains for \[test2\].\n"
+
+    set ::no(compileIsolatedInterpreters) 1
+    set ::no(compile.ISOLATED_INTERPRETERS) 1
+    host result Ok ">>>> disabled isolated interpreters constraint detection.\n"
+
+    set ::no(compileIsolatedPlugins) 1
+    set ::no(compile.ISOLATED_PLUGINS) 1
+    host result Ok ">>>> disabled isolated plugins constraint detection.\n"
+
+    removeConstraint compile.ISOLATED_INTERPRETERS
+    host result Ok ">>>> disabled isolated interpreters test constraint.\n"
+
+    removeConstraint compile.ISOLATED_PLUGINS
+    host result Ok ">>>> disabled isolated plugins test constraint.\n"
+  } else {
+    host result Ok ">>>> left isolation compile-time options alone.\n"
+  }
+
+  #############################################################################
+
+  if {![info exists ::env(FULLTEST)]} then {
+    set skips(exec-2.1) 1; # HACK: Too long for routine tests.
+    set skips(interp-1.50000) 1; # HACK: Too long for routine tests.
+  }
+
+  if {[isMacOS]} then {
+    #
+    # HACK: These specific tests are disabled on macOS due to issues with
+    #       its kernel handling of fork() combined with atfork() handlers
+    #       and dlclose().  If enabled, they may cause any subsequent use
+    #       of the [exec] command to hang (or crash) due to unloaded code
+    #       memory being referenced via stale atfork() handlers from DLLs
+    #       that have been completely unloaded (e.g. Tcl in this case).
+    #
+    set skips(commands-1.1.1) 1
+    set skips(commands-1.1.2) 1
+    set skips(commands-1.1.3) 1
+    set skips(excel-2.2) 1
+    set skips(library-3.1) 1
+    set skips(library-3.2) 1
+    set skips(tclCancel-1.1) 1
+    set skips(tclEncoding-1.1) 1
+    set skips(tclEncoding-1.2) 1
+    set skips(tclEncoding-1.3) 1
+    set skips(tclErrorInfo-1.1) 1
+    set skips(tclErrorInfo-1.2) 1
+    set skips(tclLoad-1.1) 1
+    set skips(tclLoad-1.2) 1
+    set skips(tclLoad-2.1) 1
+    set skips(tclLoad-2.2) 1
+    set skips(tclLoad-3.1) 1
+    set skips(tclLoad-3.2) 1
+    set skips(tclLoad-3.3) 1
+    set skips(tclLoad-3.4) 1
+    set skips(tclResetCancel-1.1) 1
+    set skips(tclResetCancel-2.1) 1
+    set skips(tclResetCancel-2.2) 1
+    set skips(tclResetCancel-3.1) 1
+    set skips(tclResetCancel-4.1) 1
+    set skips(tclResetCancel-4.2) 1
+    set skips(tclResetCancel-4.3) 1
+    set skips(tclSet-1.1) 1
+    set skips(tclSubst-1.1) 1
+    set skips(vwait-1.30) 1
+  }
+
+  if {[isDotNetCore] && \
+      ![info exists ::env(DOTNETCORE_IS_NOT_CURRENTLY_BROKEN)]} then {
+    set dotNetCoreSkips(socket-3.2) 1; # knownBug
+  }
+
+  #############################################################################
+
+  if {![info exists skips(exec-2.1)]} then {
+    addRuntimeOption failFastForExecStress;           # exec-2.1
+    # addRuntimeOption maybeUseLoopbackForExecStress; # exec-2.1
+    addRuntimeOption maybeUseThreadsForExecStress;    # exec-2.1
+    addRuntimeOption saveBadOutputForExecStress;      # exec-2.1
+    addRuntimeOption saveCaptureDataForExecStress;    # exec-2.1
+
+    host result Ok [appendArgs \
+        ">>>> extra runtime options added, now: " \
+        $::eagle_platform(runtimeOptions) \n]
+  }
+
+  #############################################################################
+
+  package require Eagle.Test
+
+  addConstraintToArgv shell
+  addConstraintToArgv tlsOk
+  addConstraintToArgv internet_eagle.to
+  addConstraintToArgv network_update.eagle.to
+  addConstraintToArgv network_www.eagle-lang.org
+  addConstraintToArgv network_www1.eagle-lang.org
+  addConstraintToArgv network_www2.eagle-lang.org
+  addConstraintToArgv network_urn.to
+  addConstraintToArgv network_time.mistachkin.net
+
+  host result Ok [appendArgs \
+      ">>>> extra test constraints added, argv now: " $::argv \n]
+
+  #############################################################################
+
+  addRuntimeOption logExtraTestResults
+  addRuntimeOption logExtraTestRunMessage
+  addRuntimeOption logRemoteMessageResultFile
+
+  #############################################################################
+
+  package require Eagle.Test
+
+  foreach skip [lsort [array names skips]] {
+    addToArgv -skip $skip
+  }
+
+  if {[isMono]} then {
+    foreach skip [lsort [array names monoSkips]] {
+      addToArgv -skip $skip
+    }
+  }
+
+  if {[isDotNetCore]} then {
+    foreach skip [lsort [array names dotNetCoreSkips]] {
+      addToArgv -skip $skip
+    }
+  }
+
+  host result Ok [appendArgs \
+      ">>>> possibly added test skips, argv now: " $::argv \n]
+
+  #############################################################################
+
+  if {1} then {
+    set ::eagle_platform(networkTimeout) 20000; # TODO: Why?
+
+    set ::env(NetworkTimeout) $::eagle_platform(networkTimeout)
+    set ::test_timeout $::eagle_platform(networkTimeout)
+
+    host result Ok [appendArgs \
+        ">>>> network timeout forcibly changed to " \
+        [expr {int($::eagle_platform(networkTimeout) / 1000.0)}] \
+        " seconds.\n"]
+  }
+
+  #############################################################################
+
+  if {[isMono] && \
+      ![info exists ::env(MAYBE_MONO_IS_NOT_CURRENTLY_BROKEN)]} then {
+    set ::no(reloadBadgePlugin) 1; # BUGBUG: Mono may hang?
+    host result Ok ">>>> disabled reloading of the Badge plugins.\n"
+  }
+
+  #############################################################################
+
+  set ::no(tls13HostsFile) 1;      # NOTE: Windows 10 (?) is required, so no.
+  host result Ok ">>>> disabled hosts using TLS 1.3.\n"
+
+  if {[isDotNetCore] && \
+      ![info exists ::env(DOTNETCORE_IS_NOT_CURRENTLY_BROKEN)] && \
+      [info exists ::eagle_platform(runtimeVersion)] && \
+      [string match 2.* $::eagle_platform(runtimeVersion)]} then {
+    set ::no(tls12HostsFile) 1
+    host result Ok ">>>> disabled hosts using TLS 1.2.\n"
+  }
+
+  #############################################################################
+
+  if {![info exists ::env(TLS13_IS_NOT_CURRENTLY_BROKEN)]} then {
+    #
+    # HACK: Apparently, several versions of .NET Core may have a bug in their
+    #       QUIC and/or TLS 1.3 implementation(s) that can cause inappropriate
+    #       timeout exceptions to be thrown.  Please see the following issue
+    #       on GitHub:
+    #
+    #                 https://github.com/dotnet/runtime/issues/98220
+    #
+    #       To be more specific, this was causing the test "harpy-48.2" to
+    #       repeatedly fail, if intermittently, with web timeout exceptions,
+    #       even though the timeout value was 20000 milliseconds and each of
+    #       the web requests in question were retried up to 10 times.  This
+    #       note does not seem to impact Mono directly (?); however, similar
+    #       behavior is sometimes seen there for test "harpy-48.2" as well,
+    #       which may originate in code shared between Mono and .NET Core or
+    #       perhaps an underlying library being used by both.
+    #
+    #       This was written on May 16th, 2024.
+    #
+    object invoke -flags +NonPublic Eagle._Tests.Default \
+        MaskOffSecurityProtocol Tls13
+
+    host result Ok ">>>> masked off client use of TLS 1.3.\n"
+  }
+
+  #############################################################################
+
+  if {1} then {
+    set ::no(interactive) 1
+    host result Ok ">>>> forcibly disabled interactive tests.\n"
+  }
+
+  #############################################################################
+
+  if {1} then {
+    set ::no(leak,runTest) 1
+    host result Ok ">>>> forcibly disabled per-test resource statistics.\n"
+  }
+
+  #############################################################################
+
+  if {1} then {
+    set ::no(failTimingTests) 1
+    host result Ok ">>>> forcibly disabled failure of timing tests.\n"
+  }
+
+  #############################################################################
+
+  if {[info exists ::eagle_platform(compileOptions)] && [lsearch -exact -- \
+      $::eagle_platform(compileOptions) ISOLATED_INTERPRETERS] != -1} then {
+    if {[catch {
+      object invoke -flags +NonPublic -objectflags +AutoFlagsEnum \
+          Interpreter.GetActive pluginFlags "+NoPreview NoUpdateCheck"
+    } result] == 0} then {
+      host result Ok ">>>> disabled isolated plugin preview / update.\n"
+    } else {
+      host result Error [appendArgs \
+          ">>>> failed to disable isolated plugin preview / update: " \
+          $result \n]
+    }
+  }
+
+  #############################################################################
+
+  if {![info exists ::env(NoTestPrologue)]} then {
+    set ::env(testPrologue) [file join \
+        [file dirname [info script]] testPrologue.eagle]
+
+    host result Ok [appendArgs \
+        ">>>> set custom test prologue: " $::env(testPrologue) \n]
+  }
+
+  #############################################################################
+
+  if {![info exists ::env(NoTestEpilogue)]} then {
+    set ::env(testEpilogue) [file join \
+        [file dirname [info script]] testEpilogue.eagle]
+
+    host result Ok [appendArgs \
+        ">>>> set custom test epilogue: " $::env(testEpilogue) \n]
+  }
+
+  #############################################################################
+
+  if {1} then {
+    set ::env(ForceTrustedHashes) 1
+    host result Ok ">>>> forcibly enabled use of trusted hashes.\n"
+  }
+
+  #############################################################################
+
+  if {1} then {
+    #
+    # TODO: Update these trusted hashes when System.Data.SQLite has been
+    #       updated in the Eagle externals source tree.
+    #
+    set trustedHashes [object create -alias StringList]
+
+    # System.Data.SQLite.dll v1.0.111.0 for the .NET Framework 2.x / 4.x.
+    $trustedHashes Add [list File SHA256 \
+        5e2f7081a990f707771b836ba6716e48cb6609be8c85b94e6356271978fb7fc2]
+
+    # System.Data.SQLite.dll v1.0.111.0 for the .NET Standard 2.x.
+    $trustedHashes Add [list File SHA256 \
+        8cf76861e1a0453e55d3a73581e25243d6785af1a2a6baa46bdb7909ce7ea6b2]
+
+    set error null
+
+    if {[object invoke Utility \
+          AddTrustedHashes $trustedHashes false error] eq "Ok"} then {
+      host result Ok [appendArgs \
+          ">>>> added trusted hashes for System.Data.SQLite, now: " \
+          [object invoke -flags +NonPublic \
+          Eagle._Components.Private.GlobalState trustedHashes.ToString] \n]
+    } else {
+      error [getStringFromObjectHandle $error]
+    }
+  }
+
+  #############################################################################
+  #
+  # NOTE: Also trust the System.Data.SQLite managed assembly actually present
+  #       in the binary directory (e.g. a source build whose hash will differ
+  #       from the pinned externals hashes above).  Trust is additive because
+  #       we always trust the pinned "release builds" but we *also* trust our
+  #       most recent source build.
+  #
+  if {[string is true -strict [getEnvironmentVariable CI]]} then {
+    set fileName [file join [info binary] System.Data.SQLite.dll]
+
+    if {[file exists $fileName]} then {
+      set trustedHashes [object create -alias StringList]
+
+      $trustedHashes Add [list File SHA256 \
+          [hash normal -filename SHA256 $fileName]]
+
+      set error null
+
+      if {[object invoke Utility \
+            AddTrustedHashes $trustedHashes false error] eq "Ok"} then {
+        host result Ok [appendArgs \
+            ">>>> added trusted hash for System.Data.SQLite source " \
+            "build file: " $fileName \n]
+      } else {
+        error [getStringFromObjectHandle $error]
+      }
+    }
+  }
+
+  #############################################################################
+
+  if {1} then {
+    host result Ok [appendArgs \
+        ">>>> System.Data.SQLite managed assembly file trust status: " \
+        [expr {[file trusted [file join [info binary] \
+        System.Data.SQLite.dll]] ? "TRUSTED" : "UNTRUSTED"}] \n]
+  }
+
+  #############################################################################
+
+  if {[isMacOS]} then {
+    if {[catch {tcl find} fileName] == 0} then {
+      if {[file exists $fileName]} then {
+        set trustedHashes [object create -alias StringList]
+
+        $trustedHashes Add [list File SHA256 \
+            [hash normal -filename SHA256 $fileName]]
+
+        set error null
+
+        if {[object invoke Utility \
+              AddTrustedHashes $trustedHashes false error] eq "Ok"} then {
+          host result Ok [appendArgs \
+              ">>>> added trusted hash for native Tcl library file: " \
+              $fileName \n]
+        } else {
+          error [getStringFromObjectHandle $error]
+        }
+      } else {
+        error [appendArgs \
+            "native Tcl library file missing from \[tcl find\]: " \
+            $fileName]
+      }
+
+      host result Ok [appendArgs \
+          ">>>> native Tcl library file \"" $fileName "\" trust status: " \
+          [expr {[file trusted $fileName] ? "TRUSTED" : "UNTRUSTED"}] \n]
+    } else {
+      host result Ok ">>>> no native Tcl libraries available"
+    }
+
+    ###########################################################################
+
+    #
+    # HACK: Attempt to prevent built-in Tcl shell binary from repeatedly
+    #       crashing and popping up the (super-annoying) crash dialog.
+    #
+    set ::env(getTkVersionForTclShell) 1
+    host result Ok ">>>> forcibly disabled Tk package version detection.\n"
+
+    ###########################################################################
+
+    catch {
+      object invoke -flags +NonPublic \
+          Eagle._Components.Private.Tcl.TclWrapper \
+          forceTestLoadTclLibraryFile false
+
+      host result Ok ">>>> forcibly disabled TclWrapper test loading.\n"
+    }
+  }
+
+  #############################################################################
+
+  if {[info exists ::env(TEST_SUITE_WAIT_FOR_DEBUGGER)]} then {
+    host result Ok [appendArgs \
+        ">>>> attach system debugger to the process identifier " \
+        [pid] " and hit ENTER to continue...\n"]
+
+    gets stdin; host result Ok ">>>> DONE\n"
+  }
+
+  #############################################################################
+
+  if {![info exists ::env(NoUnsupportedCommands)]} then {
+    catch {
+      set error null
+
+      set code [object invoke \
+          Eagle._Tests.Default TestAddUnsupportedCommands "" null error]
+
+      if {$code ne "Ok"} then {
+        error [getStringFromObjectHandle $error]
+      }
+
+      host result Ok \
+          ">>>> added \"unsupported\" script command(s)\n"
+    }
+  }
+
+  #############################################################################
+
+  host result Ok ">>>> waiting for 10 seconds...\n"
+  after 10000; # finally, just wait, so user can see the output
+}]

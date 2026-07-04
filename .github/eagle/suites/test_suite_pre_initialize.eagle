@@ -1,0 +1,84 @@
+###############################################################################
+#
+# test_suite_pre_initialize.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+# User Test Pre-Initialize File for Monophile / Netphile / Lachrymose
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+apply [list [list] {
+  if {[info exists ::env(NO_TEST_SUITE_PRE_INITIALIZE)]} then {return}
+
+  #############################################################################
+
+  if {1} then {; # BUGBUG: Is this really a good idea?  Slower?
+    object invoke System.Diagnostics.Trace AutoFlush True
+    host result Ok ">>>> forcibly enabled AutoFlush for Trace class.\n"
+  }
+
+  #############################################################################
+
+  if {0} then {; # BUGBUG: Makes hang at remote logging situation worse?
+    set ::env(NoSynchronousRemoteMessage) 1
+    host result Ok ">>>> forcibly set remote logging to asynchronous.\n"
+  }
+
+  #############################################################################
+
+  if {1} then {
+    set ::eagle_debugger(logRemoteMessageRetries) 3
+    host result Ok ">>>> forcibly set three \[logRemoteMessage\] retries.\n"
+  }
+
+  #############################################################################
+
+  if {1} then {
+    set ::env(NoTclPrompt1) 1
+    host result Ok ">>>> forcibly disabled custom shell prompt.\n"
+  }
+
+  #############################################################################
+
+  if {1} then {
+    set ::env(NoLoadOnStartupPublicAutoPath) 1
+    host result Ok ">>>> forcibly disabled auto-path update for startup.\n"
+  }
+
+  #############################################################################
+
+  if {1} then {
+    set ::env(NoShellUnknown) 1
+    host result Ok ">>>> forcibly disabled custom shell unknown.\n"
+  }
+
+  #############################################################################
+
+  if {1} then {
+    set ::env(HarpyNoInternal) 1
+    host result Ok ">>>> forcibly disabled internal Harpy licenses.\n"
+  }
+
+  #############################################################################
+
+  if {1} then {
+    set ::getRuntimeCommandLine(dotNetCoreExecArgs) [list --roll-forward Major]
+    set ::compileCSharp(dotNetCoreExecArgs) [list --roll-forward Major]
+    host result Ok ">>>> forcibly enabled \"--roll-forward Major\" for .NET.\n"
+  }
+
+  #############################################################################
+
+  if {[object invoke Utility IsMono] && \
+      ![info exists ::env(MAYBE_MONO_IS_NOT_CURRENTLY_BROKEN)]} then {
+    set ::env(NoLicensing) 1; # BUGBUG: Mono may hang?
+    host result Ok ">>>> disabled licensing \[package unknown\] hook.\n"
+  }
+}]

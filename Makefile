@@ -39,14 +39,6 @@ DESTDIR =
 PREFIX = /opt/eagle
 
 # =============================================================================
-#                         Fetch Configuration Variables
-# =============================================================================
-
-GIT = git
-GIT_DOCS_URI = https://github.com/mistachkin/docs
-GIT_EXTRA_URI = https://github.com/mistachkin/extra
-
-# =============================================================================
 #                         Build Configuration Variables
 # =============================================================================
 
@@ -101,6 +93,7 @@ SHELL_DLL_NAME = EagleShell.dll
 SHELL_SH_NAME = eagle.sh
 SHELL_DLL_ARGS = -anyFile Makefile.eagle
 LIBRARY_DLL_NAME = Eagle.dll
+TEST_FILE = Library/Tests/all.eagle
 TEST_ARGS =
 
 # -----------------------------------------------------------------------------
@@ -142,14 +135,6 @@ all: build
 #                                Shared Targets
 # =============================================================================
 
-validate-git: FORCE
-	@if ! $(GIT) --version >/dev/null 2>&1; then \
-	    echo "ERROR: $(GIT) is not installed or not working properly."; \
-	    exit 1; \
-	fi
-
-# -----------------------------------------------------------------------------
-
 validate-dotnet: FORCE
 	@if ! $(DOTNET_ENV) $(DOTNET) --info >/dev/null 2>&1; then \
 	    echo "ERROR: $(DOTNET) is not installed or not working properly."; \
@@ -190,6 +175,11 @@ add-sds-pkg: validate-dotnet
 #                                Build Targets
 # =============================================================================
 
+build-core: validate-dotnet
+	$(DOTNET_ENV) $(DOTNET) build /target:Build "/property:Configuration=$(BUILD_MANAGED_CONFIGURATION)" "$(BUILD_SOLUTION_2)" $(BUILD_ARGS)
+
+# -----------------------------------------------------------------------------
+
 build-managed: validate-dotnet add-sds-pkg
 	$(DOTNET_ENV) $(DOTNET) build /target:Build "/property:Configuration=$(BUILD_MANAGED_CONFIGURATION)" "$(BUILD_SOLUTION_1)" $(BUILD_ARGS) || \
 	$(DOTNET_ENV) $(DOTNET) build /target:Build "/property:Configuration=$(BUILD_MANAGED_CONFIGURATION)" "$(BUILD_SOLUTION_2)" $(BUILD_ARGS)
@@ -210,15 +200,15 @@ build-native: FORCE
 
 # -----------------------------------------------------------------------------
 
-rebuild-native: force-clean build-native
-
-# -----------------------------------------------------------------------------
-
 rebuild-managed: validate-dotnet add-sds-pkg
 	$(DOTNET_ENV) $(DOTNET) build /target:Rebuild "/property:Configuration=$(BUILD_MANAGED_CONFIGURATION)" "$(BUILD_SOLUTION_1)" $(BUILD_ARGS) || \
 	$(DOTNET_ENV) $(DOTNET) build /target:Rebuild "/property:Configuration=$(BUILD_MANAGED_CONFIGURATION)" "$(BUILD_SOLUTION_2)" $(BUILD_ARGS)
 	-RID=$$($(DOTNET_ENV) $(DOTNET) --info | grep 'RID:' | sed 's/.*RID: *//;s/ *$$//') && $(CP) "$(BUILD_DIRECTORY)/runtimes/$$RID/native/SQLite.Interop.dll" "$(BUILD_DIRECTORY)"
 	$(CP) Library/Configurations/* "$(BUILD_DIRECTORY)"
+
+# -----------------------------------------------------------------------------
+
+rebuild-native: force-clean build-native
 
 # -----------------------------------------------------------------------------
 
@@ -271,43 +261,13 @@ run: validate-dotnet
 # -----------------------------------------------------------------------------
 
 test: validate-dotnet
-	$(DOTNET_ENV) $(DOTNET) exec $(DOTNET_ARGS) "$(SHELL_DLL_PATH)" $(SHELL_DLL_ARGS) -file "Library/Tests/all.eagle" $(TEST_ARGS)
+	$(DOTNET_ENV) $(DOTNET) exec $(DOTNET_ARGS) "$(SHELL_DLL_PATH)" $(SHELL_DLL_ARGS) -file "$(TEST_FILE)" $(TEST_ARGS)
 
 # -----------------------------------------------------------------------------
 
 shell: run
 
 check: test
-
-# =============================================================================
-#                               Git Fetch Targets
-# =============================================================================
-
-fetch-docs: validate-git validate-dirs
-	$(GIT) clone "$(GIT_DOCS_URI)" "$(DESTDIR)$(PREFIX)/docs/"
-
-# -----------------------------------------------------------------------------
-
-fetch-extra: validate-git validate-dirs
-	$(GIT) clone "$(GIT_EXTRA_URI)" "$(DESTDIR)$(PREFIX)/lib/Extra1.0"
-
-# -----------------------------------------------------------------------------
-
-unfetch-docs: validate-dirs
-	-rm -rf "$(DESTDIR)$(PREFIX)/docs/"
-	-rmdir "$(DESTDIR)$(PREFIX)"
-
-# -----------------------------------------------------------------------------
-
-unfetch-extra: validate-dirs
-	-rm -rf "$(DESTDIR)$(PREFIX)/lib/Extra1.0/"
-	-rmdir "$(DESTDIR)$(PREFIX)/lib"
-
-# -----------------------------------------------------------------------------
-
-fetch: fetch-docs fetch-extra
-
-unfetch: unfetch-docs unfetch-extra
 
 # =============================================================================
 #                                Install Targets
@@ -398,7 +358,6 @@ help: FORCE
 	@echo ""
 	@echo "  validate-dirs    - REQUIRED: Validate path(s) \"$(DESTDIR)$(PREFIX)\"."
 	@echo "  validate-dotnet  - REQUIRED: Does the .NET runtime appear to be working?"
-	@echo "  validate-git     - OPTIONAL: Does the installed Git appear to be working?"
 	@echo ""
 	@echo "  build            - Build all projects."
 	@echo "  build-managed    - Build managed projects only."
@@ -428,11 +387,6 @@ help: FORCE
 	@echo ""
 	@echo "  uninstall        - Uninstall files from \"$(DESTDIR)$(PREFIX)\"."
 	@echo "  uninstall-all    - Uninstall everything, including remote extras."
-	@echo ""
-	@echo "  fetch            - Install docs and extras."
-	@echo "  unfetch          - Uninstall docs and extras."
-	@echo "  fetch-docs       - Install docs from \"$(GIT_DOCS_URI)\"."
-	@echo "  fetch-extra      - Install extras from \"$(GIT_EXTRA_URI)\"."
 	@echo ""
 	@echo "  install-dirs     - Create directories in \"$(DESTDIR)$(PREFIX)\"."
 	@echo "  install-all-dirs - Create \"install-dirs\" and extras directories."

@@ -20,10 +20,13 @@ jobs:
 
     env:
       EAGLE_ROOT: ${{ github.workspace }}
+      SCRIPT_ROOT: ${{ github.workspace }}/.github/eagle/suites
 
     steps:
       - name: Checkout the Eagle repository
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Setup the .NET 10 runtime
         uses: actions/setup-dotnet@v4
@@ -39,11 +42,79 @@ jobs:
           IF EXIST Library\Resources\packages.resources COPY /B Library\Resources\packages.resources +,, Library\Resources\packages.resources
           IF EXIST Sample\Resources\packages.resources COPY /B Sample\Resources\packages.resources +,, Sample\Resources\packages.resources
 
-      - name: Build the managed projects
-        run: make build-managed
+      - name: Install Mono for its strong name tool (macOS only)
+        if: runner.os == 'macOS'
+        run: brew install mono
 
-      - name: Run the test suite
+      - name: Install Tcl 8 for native integration tests (macOS only)
+        if: runner.os == 'macOS'
+        run: brew install tcl-tk@8
+
+      - name: Enable BigRSACryptoServiceProvider (macOS only)
+        if: runner.os == 'macOS'
+        run: echo "UseBigCrypto=1" >> "$GITHUB_ENV"
+
+      - name: Setup test BATCH_ID
+        shell: bash
+        run: |
+          BATCH_ID=$(openssl rand -hex 32 | tr 'a-f' 'A-F')
+          [[ "$BATCH_ID" =~ ^[0-9A-F]{64}$ ]] || { echo "failed to setup a valid BATCH_ID"; exit 1; }
+          echo "BATCH_ID=$BATCH_ID" >> "$GITHUB_ENV"
+          echo "test batch id: $BATCH_ID"
+
+      - name: Build core projects (for link tool)
+        run: make build-core
+
+      - name: Run the link tool
+        run: make run SHELL_DLL_ARGS="-file ./eee/Tools/link.eagle"
+
+      - name: Build all projects
+        run: make rebuild
+
+      - name: Build System.Data.SQLite assemblies (macOS only)
+        if: runner.os == 'macOS'
+        run: |
+          SDS="$RUNNER_TEMP/System.Data.SQLite"
+          git clone --depth 1 https://github.com/mistachkin/System.Data.SQLite "$SDS"
+          cd "$SDS"
+          dotnet build ./SQLite.NET.NetStandard21.MSBuild.sln /maxCpuCount:1
+          sn -R ./bin/NetStandard21/DebugNetStandard21/bin/netstandard2.1/System.Data.SQLite.dll ./Keys/System.Data.SQLite.snk
+          ./Setup/compile-interop-assembly-debug.sh
+          echo "SQLITE_NET_ROOT=$SDS" >> "$GITHUB_ENV"
+
+      - name: Place System.Data.SQLite assemblies next to Eagle (macOS only)
+        if: runner.os == 'macOS'
+        run: |
+          BIN="$GITHUB_WORKSPACE/bin/DebugNetStandard21/bin/netcoreapp3.0"
+          cp "$SQLITE_NET_ROOT/bin/NetStandard21/DebugNetStandard21/bin/netstandard2.1/System.Data.SQLite.dll" "$BIN/"
+          if [ "$RUNNER_OS" = "macOS" ]; then ext=dylib; else ext=so; fi
+          cp "$SQLITE_NET_ROOT/bin/2013/Debug/bin/SQLite.Interop.dll" "$BIN/SQLite.Interop.dll.$ext"
+
+      - name: Run test suite
         env:
           EAGLE_TEST_TEMP: ${{ runner.temp }}
           logRemoteMessagePassword: ${{ secrets.LOG_REMOTE_MESSAGE_PASSWORD }}
         run: make test
+
+      - name: Run plugin test suites
+        shell: bash
+        env:
+          EAGLE_TEST_TEMP: ${{ runner.temp }}
+          logRemoteMessagePassword: ${{ secrets.LOG_REMOTE_MESSAGE_PASSWORD }}
+        run: |
+          status=0
+          for f in \
+            Plugins/Commercial/Enterprise/Harpy/Tests/all.eagle \
+            Plugins/Commercial/Enterprise/Badge/Tests/all.eagle \
+            Plugins/Commercial/Enterprise/Zeus/Tests/all.eagle \
+            Plugins/Commercial/Enterprise/Demo/Tests/all.eagle; do
+            name=${f#Plugins/}; name=${name%/Tests/all.eagle}
+            if [ -f "$f" ]; then
+              echo "::group::$name"
+              make test TEST_FILE="$f" || status=$?
+              echo "::endgroup::"
+            else
+              echo "skipping $name (not present in this checkout)"
+            fi
+          done
+          exit $status

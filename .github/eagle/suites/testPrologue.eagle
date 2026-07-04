@@ -1,0 +1,61 @@
+###############################################################################
+#
+# testPrologue.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+# User Test Prologue File for Monophile / Netphile / Lachrymose
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+if {[isEagle]} then {
+  apply [list [list] {
+    # <help>
+    # This procedure sets the license certificate display name for use with
+    # the [requestLicenseCertificate] procedure of the core script library.
+    # </help>
+
+    if {![info exists ::env(NoTestLicenseDisplayName)]} then {
+      package require Eagle.Test
+
+      set tag [getTestRunTag]
+
+      if {[string length $tag] > 0} then {
+        set ::env(LicenseDisplayName) $tag
+
+        host result Ok [appendArgs \
+            ">>>> set LicenseDisplayName ==> " $tag \n]
+      } else {
+        host result Error \
+            ">>>> skipped setting LicenseDisplayName, no tag.\n"
+      }
+    } else {
+      host result Error \
+          ">>>> skipped setting LicenseDisplayName, forbidden.\n"
+    }
+  }]
+} else {
+  apply [list [list] {
+    # <help>
+    # This procedure may forcibly disable all network constraint checks
+    # that are normally performed by the test suite prologue.  This may
+    # cause quite a few tests to be skipped.  Use with care.  Also, it
+    # is only necessary because it appears to prevent the Tcl shell from
+    # crashing (i.e. segmentation faults) on recent releases of macOS.
+    # </help>
+
+    if {![info exists ::no(disableForMacOS)] && [isMacOS]} then {
+      # set ::no(network) 1; # TODO: May be needed later.
+      set ::no(internet) 1
+      set ::no(tlsOk) 1
+
+      puts stdout ">>>> forcibly disabled network constraint checks"
+    }
+  }]
+}
