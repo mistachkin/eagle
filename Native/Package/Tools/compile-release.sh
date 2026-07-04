@@ -5,13 +5,17 @@ extradefs="$@"
 machine=$(uname -m)
 
 if [[ "$OSTYPE" == "darwin"* ]]; then
+  dnroot="${DOTNET_ROOT:-/usr/local/share/dotnet}"
+
   if [[ "$machine" == "arm64" ]]; then
-    basedir="/usr/local/share/dotnet/packs/Microsoft.NETCore.App.Host.osx-arm64"
+    basedir="$dnroot/packs/Microsoft.NETCore.App.Host.osx-arm64"
   else
-    basedir="/usr/local/share/dotnet/packs/Microsoft.NETCore.App.Host.osx-x64"
+    basedir="$dnroot/packs/Microsoft.NETCore.App.Host.osx-x64"
   fi
 else
-  basedir="/usr/share/dotnet/packs/Microsoft.NETCore.App.Host.linux-x64"
+  dnroot="${DOTNET_ROOT:-/usr/share/dotnet}"
+
+  basedir="$dnroot/packs/Microsoft.NETCore.App.Host.linux-x64"
 
   if [[ ! -d $basedir ]]; then
     basedir="/usr/lib/dotnet/packs/Microsoft.NETCore.App.Host.ubuntu.24.04-x64"

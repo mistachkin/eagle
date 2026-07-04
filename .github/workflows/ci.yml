@@ -86,9 +86,7 @@ jobs:
         if: runner.os != 'Windows'
         shell: bash
         run: |
-          # '|| true': under bash -e -o pipefail a non-existent base dir makes ls fail and
-          # (via pipefail) would abort the step before reaching the base that does exist.
-          for base in /usr/local/share/dotnet/packs /usr/share/dotnet/packs /usr/lib/dotnet/packs; do
+          for base in "$DOTNET_ROOT/packs" /usr/local/share/dotnet/packs /usr/share/dotnet/packs /usr/lib/dotnet/packs; do
             pack=$(ls -d "$base"/Microsoft.NETCore.App.Host.*/ 2>/dev/null | head -1) || true
             [ -n "$pack" ] && break
           done
@@ -122,7 +120,7 @@ jobs:
           if (-not $vs) { throw "Visual Studio not found via vswhere" }
           Import-Module (Join-Path $vs 'Common7\Tools\Microsoft.VisualStudio.DevShell.dll')
           Enter-VsDevShell -VsInstallPath $vs -DevCmdArguments '-arch=x64' -SkipAutomaticLocation
-          $env:DOTNET_SDK_PACKS_DIR = "$env:ProgramFiles\dotnet\packs"
+          $env:DOTNET_SDK_PACKS_DIR = if ($env:DOTNET_ROOT) { Join-Path $env:DOTNET_ROOT 'packs' } else { Join-Path $env:ProgramFiles 'dotnet\packs' }
           $hostPack = Join-Path $env:DOTNET_SDK_PACKS_DIR 'Microsoft.NETCore.App.Host.win-x64'
           $ver = Get-ChildItem $hostPack -Directory -Name -ErrorAction SilentlyContinue | Where-Object { $_ -like '10.*' } | Sort-Object { [version]$_ } | Select-Object -Last 1
           if (-not $ver) { throw "no 10.x win-x64 AppHost pack under $hostPack" }
