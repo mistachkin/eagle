@@ -142,7 +142,7 @@ jobs:
           cd "$SDS/sqlite/dotnet"
           dotnet build ./SQLite.NET.NetStandard21.MSBuild.sln /maxCpuCount:1
           sn -R ./bin/NetStandard21/DebugNetStandard21/bin/netstandard2.1/System.Data.SQLite.dll ./Keys/System.Data.SQLite.snk
-          ./Setup/compile-interop-assembly-debug.sh
+          SQLITE_NET_ARCH="$(uname -m)" ./Setup/compile-interop-assembly-debug.sh
           echo "SQLITE_NET_ROOT=$SDS/sqlite/dotnet" >> "$GITHUB_ENV"
 
       - name: Place System.Data.SQLite assemblies next to Eagle (macOS only)
