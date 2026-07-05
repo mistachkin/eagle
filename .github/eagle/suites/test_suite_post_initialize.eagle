@@ -458,6 +458,27 @@ apply [list [list] {
   #############################################################################
 
   if {[isMacOS]} then {
+    #
+    # HACK: Setting the "tclPreLoad" environment variable is required
+    #       for the test "garuda-1.2" test to work properly on macOS.
+    #       It is being set to a script that forcibly adds the SHA-256
+    #       trusted hash of the file name returned from the [tcl find]
+    #       command.  Without this, that native Tcl library file will
+    #       not be loaded, because it will not be considered "trusted"
+    #       by the native Tcl integration subsystem of Eagle (i.e.
+    #       TclWrapper).  On Windows, this "trusted" status translates
+    #       to executable files being properly signed via Authenticode;
+    #       since macOS cannot use Authenticode, these trusted hashes
+    #       must be used instead.
+    #
+    set fileName [file join \
+        [file dirname [info script]] trust_native_tcl_library.eagle]
+
+    set ::env(tclPreLoad) [list source $fileName]
+
+    host result Ok [appendArgs \
+        ">>>> forcibly added test Tcl pre-load script: " $fileName \n]
+
     if {[catch {tcl find} fileName] == 0} then {
       if {[file exists $fileName]} then {
         set trustedHashes [object create -alias StringList]

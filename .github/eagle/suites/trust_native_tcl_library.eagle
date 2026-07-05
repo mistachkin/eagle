@@ -1,0 +1,1 @@
+object invoke -flags +NonPublic Interpreter.GetActive trustedHashes.Add [list File SHA256 [hash normal -filename SHA256 [tcl find]]]
