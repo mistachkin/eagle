@@ -6279,7 +6279,7 @@ namespace Eagle._Components.Private
         /// </returns>
         public static bool IsUnicodeEncoding()
         {
-            foreach (string name in new string[] { 
+            foreach (string name in new string[] {
                     EnvVars.Language, /* POSIX (?) */
                     EnvVars.LocaleAll /* POSIX (?) */
                 })
@@ -7582,7 +7582,7 @@ namespace Eagle._Components.Private
             //       non-suppressed conversion specifiers (this is a static
             //       property of the format, checked up front like Tcl does).
             //
-            if (!inline)
+            if (!inline && (formatLength > 0))
             {
                 bool formatHasXpg;
 

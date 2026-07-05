@@ -33,7 +33,7 @@ jobs:
         with:
           dotnet-version: "10.0.x"
 
-      - name: Touch embedded resources to skip ResGen (Windows only)
+      - name: Touch core embedded resources to skip ResGen (Windows only)
         if: runner.os == 'Windows'
         shell: cmd
         run: |
@@ -41,8 +41,6 @@ jobs:
           IF EXIST Library\Resources\messages.resources COPY /B Library\Resources\messages.resources +,, Library\Resources\messages.resources
           IF EXIST Library\Resources\packages.resources COPY /B Library\Resources\packages.resources +,, Library\Resources\packages.resources
           IF EXIST Sample\Resources\packages.resources COPY /B Sample\Resources\packages.resources +,, Sample\Resources\packages.resources
-          IF EXIST Plugins\Commercial\Enterprise\Badge\Generated\plugin.resources COPY /B Plugins\Commercial\Enterprise\Badge\Generated\plugin.resources +,, Plugins\Commercial\Enterprise\Badge\Generated\plugin.resources
-          IF EXIST Plugins\Commercial\Enterprise\Zeus\Generated\library.resources COPY /B Plugins\Commercial\Enterprise\Zeus\Generated\library.resources +,, Plugins\Commercial\Enterprise\Zeus\Generated\library.resources
 
       - name: Install Mono for its strong name tool (macOS only)
         if: runner.os == 'macOS'
@@ -110,6 +108,13 @@ jobs:
 
       - name: Run the link tool
         run: make run SHELL_DLL_ARGS="-file ./eee/Tools/link.eagle"
+
+      - name: Touch plugin embedded resources to skip ResGen (Windows only)
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: |
+          IF EXIST Plugins\Commercial\Enterprise\Badge\Generated\plugin.resources COPY /B Plugins\Commercial\Enterprise\Badge\Generated\plugin.resources +,, Plugins\Commercial\Enterprise\Badge\Generated\plugin.resources
+          IF EXIST Plugins\Commercial\Enterprise\Zeus\Generated\library.resources COPY /B Plugins\Commercial\Enterprise\Zeus\Generated\library.resources +,, Plugins\Commercial\Enterprise\Zeus\Generated\library.resources
 
       - name: Build all projects
         run: make rebuild

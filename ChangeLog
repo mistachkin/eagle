@@ -1,7 +1,7 @@
 
 ************************* Beta 1.0.XXXX.XXXXX RELEASE *************************
 
-BUGFIX: fix and/or address Coverity issues from #434153 to #561168.
+BUGFIX: fix and/or address Coverity issues from #434153 to #561706.
 
 BUGFIX: the IsPrecisionVariable helper compared the candidate variable
         name against the "auto_path" variable name instead of the
