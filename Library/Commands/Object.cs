@@ -644,6 +644,7 @@ namespace Eagle._Commands
                                                     bool strictArgs;
                                                     bool noCase;
                                                     bool invoke;
+                                                    bool help;
                                                     bool noArgs;
                                                     bool arrayAsValue;
                                                     bool arrayAsLink;
@@ -659,8 +660,8 @@ namespace Eagle._Commands
                                                         out bindingFlags, out marshalFlags, out reorderFlags,
                                                         out byRefArgumentFlags, out limit, out index,
                                                         out noByRef, out strictType, out strictMember,
-                                                        out strictArgs, out noCase, out invoke, out noArgs,
-                                                        out arrayAsValue, out arrayAsLink,
+                                                        out strictArgs, out noCase, out invoke, out help,
+                                                        out noArgs, out arrayAsValue, out arrayAsLink,
                                                         out noMutateBindingFlags, out debug, out trace);
 
                                                     Type returnType;
@@ -728,7 +729,7 @@ namespace Eagle._Commands
                                                                     /* need String, not Argument */
                                                                     args[index2 - (argumentIndex + 1)] = arguments[index2].String;
                                                             }
-                                                            else if (invoke || !noArgs)
+                                                            else if (invoke || help || !noArgs)
                                                             {
                                                                 //
                                                                 // FIXME: When no arguments are specified, we actually need an array
@@ -746,7 +747,7 @@ namespace Eagle._Commands
                                                                 /* IGNORED */
                                                                 ObjectOps.MaybeMutateBindingFlags(
                                                                     options, objectOptionType, objectType, index, invoke,
-                                                                    ref bindingFlags);
+                                                                    help, ref bindingFlags);
                                                             }
 
                                                             ConstructorInfo[] constructorInfo = objectType.GetConstructors(bindingFlags);
@@ -819,7 +820,7 @@ namespace Eagle._Commands
 
                                                                             if (code == ReturnCode.Ok)
                                                                             {
-                                                                                if (invoke)
+                                                                                if (invoke && !help)
                                                                                 {
                                                                                     if (!strictMember || (methodIndexList.Count == 1))
                                                                                     {
@@ -967,14 +968,28 @@ namespace Eagle._Commands
                                                                                             constructorInfoList.Add(constructorInfo[methodIndex]);
                                                                                     }
 
-                                                                                    code = MarshalOps.FixupReturnValue(
-                                                                                        interpreter, interpreter.InternalBinder,
-                                                                                        interpreter.InternalCultureInfo,
-                                                                                        returnType, objectFlags, options,
-                                                                                        ObjectOps.GetInvokeOptions(objectOptionType),
-                                                                                        objectOptionType, objectName, interpName,
-                                                                                        constructorInfoList, create, dispose, alias,
-                                                                                        aliasReference, toString, ref result);
+                                                                                    if (help)
+                                                                                    {
+#if SHELL && INTERACTIVE_COMMANDS && XML
+                                                                                        code = HelpOps.GetMemberHelp(
+                                                                                            interpreter, constructorInfoList,
+                                                                                            false, ref result);
+#else
+                                                                                        result = "not implemented";
+                                                                                        code = ReturnCode.Error;
+#endif
+                                                                                    }
+                                                                                    else
+                                                                                    {
+                                                                                        code = MarshalOps.FixupReturnValue(
+                                                                                            interpreter, interpreter.InternalBinder,
+                                                                                            interpreter.InternalCultureInfo,
+                                                                                            returnType, objectFlags, options,
+                                                                                            ObjectOps.GetInvokeOptions(objectOptionType),
+                                                                                            objectOptionType, objectName, interpName,
+                                                                                            constructorInfoList, create, dispose, alias,
+                                                                                            aliasReference, toString, ref result);
+                                                                                    }
                                                                                 }
                                                                             }
                                                                         }
@@ -1007,7 +1022,7 @@ namespace Eagle._Commands
                                                             // NOTE: These (primitive and value types) may not have any
                                                             //       constructors (e.g. System.Int32).
                                                             //
-                                                            else if (invoke && (objectType.IsPrimitive || objectType.IsValueType))
+                                                            else if (invoke && !help  && (objectType.IsPrimitive || objectType.IsValueType))
                                                             {
                                                                 if (index == Index.Invalid)
                                                                 {
@@ -2143,6 +2158,7 @@ namespace Eagle._Commands
                                                     bool noNestedMember;
                                                     bool noCase;
                                                     bool invoke;
+                                                    bool help;
                                                     bool noArgs;
                                                     bool arrayAsValue;
                                                     bool arrayAsLink;
@@ -2162,7 +2178,7 @@ namespace Eagle._Commands
                                                         out noByRef, out verbose, out strictType,
                                                         out strictMember, out strictArgs, out identity,
                                                         out typeIdentity, out noNestedObject,
-                                                        out noNestedMember, out noCase, out invoke,
+                                                        out noNestedMember, out noCase, out invoke, out help,
                                                         out noArgs, out arrayAsValue, out arrayAsLink,
                                                         out noMutateBindingFlags, out debug, out trace);
 
@@ -2271,7 +2287,7 @@ namespace Eagle._Commands
                                                                 /* need String, not Argument */
                                                                 args[index2 - (argumentIndex + 2)] = arguments[index2].String;
                                                         }
-                                                        else if (invoke || !noArgs)
+                                                        else if (invoke || help || !noArgs)
                                                         {
                                                             //
                                                             // FIXME: When no arguments are specified, we actually need an array
@@ -2400,7 +2416,7 @@ namespace Eagle._Commands
 
                                                                             if (fieldInfo != null)
                                                                             {
-                                                                                if (invoke)
+                                                                                if (invoke && !help)
                                                                                 {
                                                                                     if (argumentCount == 0)
                                                                                     {
@@ -2495,14 +2511,28 @@ namespace Eagle._Commands
                                                                                 }
                                                                                 else
                                                                                 {
-                                                                                    code = MarshalOps.FixupReturnValue(
-                                                                                        interpreter, interpreter.InternalBinder,
-                                                                                        interpreter.InternalCultureInfo,
-                                                                                        returnType, objectFlags, options,
-                                                                                        ObjectOps.GetInvokeOptions(objectOptionType),
-                                                                                        objectOptionType, objectName, interpName,
-                                                                                        fieldInfo, create, dispose, alias,
-                                                                                        aliasReference, toString, ref result);
+                                                                                    if (help)
+                                                                                    {
+#if SHELL && INTERACTIVE_COMMANDS && XML
+                                                                                        code = HelpOps.GetMemberHelp(
+                                                                                            interpreter, fieldInfo,
+                                                                                            ref result);
+#else
+                                                                                        result = "not implemented";
+                                                                                        code = ReturnCode.Error;
+#endif
+                                                                                    }
+                                                                                    else
+                                                                                    {
+                                                                                        code = MarshalOps.FixupReturnValue(
+                                                                                            interpreter, interpreter.InternalBinder,
+                                                                                            interpreter.InternalCultureInfo,
+                                                                                            returnType, objectFlags, options,
+                                                                                            ObjectOps.GetInvokeOptions(objectOptionType),
+                                                                                            objectOptionType, objectName, interpName,
+                                                                                            fieldInfo, create, dispose, alias,
+                                                                                            aliasReference, toString, ref result);
+                                                                                    }
                                                                                 }
                                                                             }
                                                                             else
@@ -2595,7 +2625,7 @@ namespace Eagle._Commands
 
                                                                                             if (code == ReturnCode.Ok)
                                                                                             {
-                                                                                                if (invoke)
+                                                                                                if (invoke && !help)
                                                                                                 {
                                                                                                     if (!strictMember || (methodIndexList.Count == 1))
                                                                                                     {
@@ -2748,14 +2778,28 @@ namespace Eagle._Commands
                                                                                                             methodInfoList.Add(methodInfo[methodIndex]);
                                                                                                     }
 
-                                                                                                    code = MarshalOps.FixupReturnValue(
-                                                                                                        interpreter, interpreter.InternalBinder,
-                                                                                                        interpreter.InternalCultureInfo,
-                                                                                                        returnType, objectFlags, options,
-                                                                                                        ObjectOps.GetInvokeOptions(objectOptionType),
-                                                                                                        objectOptionType, objectName, interpName,
-                                                                                                        methodInfoList, create, dispose, alias,
-                                                                                                        aliasReference, toString, ref result);
+                                                                                                    if (help)
+                                                                                                    {
+#if SHELL && INTERACTIVE_COMMANDS && XML
+                                                                                                        code = HelpOps.GetMemberHelp(
+                                                                                                            interpreter, methodInfoList,
+                                                                                                            false, ref result);
+#else
+                                                                                                        result = "not implemented";
+                                                                                                        code = ReturnCode.Error;
+#endif
+                                                                                                    }
+                                                                                                    else
+                                                                                                    {
+                                                                                                        code = MarshalOps.FixupReturnValue(
+                                                                                                            interpreter, interpreter.InternalBinder,
+                                                                                                            interpreter.InternalCultureInfo,
+                                                                                                            returnType, objectFlags, options,
+                                                                                                            ObjectOps.GetInvokeOptions(objectOptionType),
+                                                                                                            objectOptionType, objectName, interpName,
+                                                                                                            methodInfoList, create, dispose, alias,
+                                                                                                            aliasReference, toString, ref result);
+                                                                                                    }
                                                                                                 }
                                                                                             }
                                                                                         }
@@ -2893,7 +2937,7 @@ namespace Eagle._Commands
 
                                                                                                 if (code == ReturnCode.Ok)
                                                                                                 {
-                                                                                                    if (invoke)
+                                                                                                    if (invoke && !help)
                                                                                                     {
                                                                                                         if (!strictMember || (methodIndexList.Count == 1))
                                                                                                         {
@@ -3029,14 +3073,29 @@ namespace Eagle._Commands
                                                                                                                 methodInfoList.Add(methodInfo[methodIndex]);
                                                                                                         }
 
-                                                                                                        code = MarshalOps.FixupReturnValue(
-                                                                                                            interpreter, interpreter.InternalBinder,
-                                                                                                            interpreter.InternalCultureInfo,
-                                                                                                            returnType, objectFlags, options,
-                                                                                                            ObjectOps.GetInvokeOptions(objectOptionType),
-                                                                                                            objectOptionType, objectName, interpName,
-                                                                                                            methodInfoList, create, dispose, alias,
-                                                                                                            aliasReference, toString, ref result);
+                                                                                                        if (help)
+                                                                                                        {
+#if SHELL && INTERACTIVE_COMMANDS && XML
+                                                                                                            code = HelpOps.GetMemberHelp(
+                                                                                                                interpreter, propertyInfo,
+                                                                                                                newMemberName, false,
+                                                                                                                ref result);
+#else
+                                                                                                            result = "not implemented";
+                                                                                                            code = ReturnCode.Error;
+#endif
+                                                                                                        }
+                                                                                                        else
+                                                                                                        {
+                                                                                                            code = MarshalOps.FixupReturnValue(
+                                                                                                                interpreter, interpreter.InternalBinder,
+                                                                                                                interpreter.InternalCultureInfo,
+                                                                                                                returnType, objectFlags, options,
+                                                                                                                ObjectOps.GetInvokeOptions(objectOptionType),
+                                                                                                                objectOptionType, objectName, interpName,
+                                                                                                                methodInfoList, create, dispose, alias,
+                                                                                                                aliasReference, toString, ref result);
+                                                                                                        }
                                                                                                     }
                                                                                                 }
                                                                                             }
@@ -3597,6 +3656,7 @@ namespace Eagle._Commands
                                                     bool strictArgs;
                                                     bool noNestedObject;
                                                     bool invoke;
+                                                    bool help;
                                                     bool noArgs;
                                                     bool arrayAsValue;
                                                     bool arrayAsLink;
@@ -3613,8 +3673,8 @@ namespace Eagle._Commands
                                                         out marshalFlags, out byRefArgumentFlags,
                                                         out noByRef, out strictType, out strictArgs,
                                                         out noNestedObject, out noCase, out invoke,
-                                                        out noArgs, out arrayAsValue, out arrayAsLink,
-                                                        out trace);
+                                                        out help, out noArgs, out arrayAsValue,
+                                                        out arrayAsLink, out trace);
 
                                                     objectValueFlags = Value.GetObjectValueFlags(
                                                         objectValueFlags, strictType, FlagOps.HasFlags(
@@ -3680,7 +3740,9 @@ namespace Eagle._Commands
 
                                                         if ((argumentIndex + 2) < arguments.Count)
                                                         {
-                                                            argumentCount = (arguments.Count - (argumentIndex + 2));
+                                                            argumentCount =
+                                                                (arguments.Count - (argumentIndex + 2));
+
                                                             args = new object[argumentCount];
 
                                                             for (int index2 = (argumentIndex + 2);
@@ -3692,7 +3754,7 @@ namespace Eagle._Commands
                                                                     arguments[index2].String;
                                                             }
                                                         }
-                                                        else if (invoke || !noArgs)
+                                                        else if (invoke || help || !noArgs)
                                                         {
                                                             args = new object[0];
                                                         }

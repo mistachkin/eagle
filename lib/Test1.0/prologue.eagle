@@ -3136,6 +3136,15 @@ if {![info exists no([file tail [info script]])]} then {
     }
 
     #
+    # NOTE: For tests "object-3.2?".
+    #
+    if {[info exists tcl_platform(engine)] && \
+        ![info exists no($tcl_platform(engine))]} then {
+      checkForFile $test_channel [file join \
+          $core_bin_path [appendArgs $tcl_platform(engine) .xml]]
+    }
+
+    #
     # NOTE: For test "garuda-1.1".
     #
     if {![info exists no(pkgAll.tcl)]} then {

@@ -189,3 +189,11 @@ jobs:
             fi
           done
           exit $status
+
+      - name: Always collect log files
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eagle-logs-${{ matrix.os }}
+          path: ${{ runner.temp }}/logs
+          if-no-files-found: warn

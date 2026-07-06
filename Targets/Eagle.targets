@@ -56,6 +56,18 @@
           SkipUnchangedFiles="true"
           Condition="'$(_DebugSymbolsProduced)' == 'true'" />
 
+    <!--
+        HACK: This will probably break things as MSBuild is quite fragile
+              and the XML documentation file copying was already fixed in
+              a different way.
+    -->
+    <!--
+    <Copy SourceFiles="$(OutDir)$(TargetName).xml"
+          DestinationFiles="$(IntermediateOutputPath)$(TargetName).xml"
+          SkipUnchangedFiles="true"
+          Condition="'$(_DocumentationFileProduced)' == 'true'" />
+    -->
+
     <Touch AlwaysCreate="true"
            Files="$(TargetPath).FixCopyFilesToOutputDirectory.done" />
   </Target>
@@ -2240,6 +2252,11 @@
           ContinueOnError="true"
           Condition="'$(_DebugSymbolsProduced)' == 'true'" />
 
+    <Copy SourceFiles="$(OutputPath)$(TargetName).xml"
+          DestinationFiles="$(OutputPath)..\netcoreapp2.0\$(TargetName).xml"
+          ContinueOnError="true"
+          Condition="'$(_DocumentationFileProduced)' == 'true'" />
+
     <Touch AlwaysCreate="true"
            Files="$(TargetPath).CopyToNetCoreApp20.done" />
   </Target>
@@ -2270,6 +2287,11 @@
           ContinueOnError="true"
           Condition="'$(_DebugSymbolsProduced)' == 'true'" />
 
+    <Copy SourceFiles="$(OutputPath)$(TargetName).xml"
+          DestinationFiles="$(OutputPath)..\netcoreapp2.1\$(TargetName).xml"
+          ContinueOnError="true"
+          Condition="'$(_DocumentationFileProduced)' == 'true'" />
+
     <Touch AlwaysCreate="true"
            Files="$(TargetPath).CopyToNetCoreApp21.done" />
   </Target>
@@ -2299,6 +2321,11 @@
           DestinationFiles="$(OutputPath)..\netcoreapp2.2\$(TargetName).pdb"
           ContinueOnError="true"
           Condition="'$(_DebugSymbolsProduced)' == 'true'" />
+
+    <Copy SourceFiles="$(OutputPath)$(TargetName).xml"
+          DestinationFiles="$(OutputPath)..\netcoreapp2.2\$(TargetName).xml"
+          ContinueOnError="true"
+          Condition="'$(_DocumentationFileProduced)' == 'true'" />
 
     <Touch AlwaysCreate="true"
            Files="$(TargetPath).CopyToNetCoreApp22.done" />
@@ -2331,6 +2358,11 @@
           ContinueOnError="true"
           Condition="'$(_DebugSymbolsProduced)' == 'true'" />
 
+    <Copy SourceFiles="$(OutputPath)$(TargetName).xml"
+          DestinationFiles="$(OutputPath)..\netcoreapp3.0\$(TargetName).xml"
+          ContinueOnError="true"
+          Condition="'$(_DocumentationFileProduced)' == 'true'" />
+
     <Touch AlwaysCreate="true"
            Files="$(TargetPath).CopyToNetCoreApp30.done" />
   </Target>
@@ -2360,6 +2392,11 @@
           DestinationFiles="$(OutputPath)..\netcoreapp3.1\$(TargetName).pdb"
           ContinueOnError="true"
           Condition="'$(_DebugSymbolsProduced)' == 'true'" />
+
+    <Copy SourceFiles="$(OutputPath)$(TargetName).xml"
+          DestinationFiles="$(OutputPath)..\netcoreapp3.1\$(TargetName).xml"
+          ContinueOnError="true"
+          Condition="'$(_DocumentationFileProduced)' == 'true'" />
 
     <Touch AlwaysCreate="true"
            Files="$(TargetPath).CopyToNetCoreApp31.done" />
@@ -2396,6 +2433,11 @@
           ContinueOnError="true"
           Condition="'$(_DebugSymbolsProduced)' == 'true'" />
 
+    <Copy SourceFiles="$(OutputPath)$(TargetName).xml"
+          DestinationFiles="$(OutputPath)..\net5.0\$(TargetName).xml"
+          ContinueOnError="true"
+          Condition="'$(_DocumentationFileProduced)' == 'true'" />
+
     <Touch AlwaysCreate="true"
            Files="$(TargetPath).CopyToNetCoreApp50.done" />
   </Target>
@@ -2430,6 +2472,11 @@
           DestinationFiles="$(OutputPath)..\net6.0\$(TargetName).pdb"
           ContinueOnError="true"
           Condition="'$(_DebugSymbolsProduced)' == 'true'" />
+
+    <Copy SourceFiles="$(OutputPath)$(TargetName).xml"
+          DestinationFiles="$(OutputPath)..\net6.0\$(TargetName).xml"
+          ContinueOnError="true"
+          Condition="'$(_DocumentationFileProduced)' == 'true'" />
 
     <Touch AlwaysCreate="true"
            Files="$(TargetPath).CopyToNetCoreApp60.done" />
@@ -2466,6 +2513,11 @@
           ContinueOnError="true"
           Condition="'$(_DebugSymbolsProduced)' == 'true'" />
 
+    <Copy SourceFiles="$(OutputPath)$(TargetName).xml"
+          DestinationFiles="$(OutputPath)..\net7.0\$(TargetName).xml"
+          ContinueOnError="true"
+          Condition="'$(_DocumentationFileProduced)' == 'true'" />
+
     <Touch AlwaysCreate="true"
            Files="$(TargetPath).CopyToNetCoreApp70.done" />
   </Target>
@@ -2500,6 +2552,11 @@
           DestinationFiles="$(OutputPath)..\net8.0\$(TargetName).pdb"
           ContinueOnError="true"
           Condition="'$(_DebugSymbolsProduced)' == 'true'" />
+
+    <Copy SourceFiles="$(OutputPath)$(TargetName).xml"
+          DestinationFiles="$(OutputPath)..\net8.0\$(TargetName).xml"
+          ContinueOnError="true"
+          Condition="'$(_DocumentationFileProduced)' == 'true'" />
 
     <Touch AlwaysCreate="true"
            Files="$(TargetPath).CopyToNetCoreApp80.done" />
@@ -2536,6 +2593,11 @@
           ContinueOnError="true"
           Condition="'$(_DebugSymbolsProduced)' == 'true'" />
 
+    <Copy SourceFiles="$(OutputPath)$(TargetName).xml"
+          DestinationFiles="$(OutputPath)..\net9.0\$(TargetName).xml"
+          ContinueOnError="true"
+          Condition="'$(_DocumentationFileProduced)' == 'true'" />
+
     <Touch AlwaysCreate="true"
            Files="$(TargetPath).CopyToNetCoreApp90.done" />
   </Target>
@@ -2570,6 +2632,11 @@
           DestinationFiles="$(OutputPath)..\net10.0\$(TargetName).pdb"
           ContinueOnError="true"
           Condition="'$(_DebugSymbolsProduced)' == 'true'" />
+
+    <Copy SourceFiles="$(OutputPath)$(TargetName).xml"
+          DestinationFiles="$(OutputPath)..\net10.0\$(TargetName).xml"
+          ContinueOnError="true"
+          Condition="'$(_DocumentationFileProduced)' == 'true'" />
 
     <Touch AlwaysCreate="true"
            Files="$(TargetPath).CopyToNetCoreApp100.done" />

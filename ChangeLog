@@ -13,7 +13,6 @@ BUGFIX: the IsPrecisionVariable helper compared the candidate variable
         call frame resets, and related operations.  It now compares
         against TclVars.Core.PrecisionName.
 
-
 BUGFIX: the interactive shell (PrivateShellMainCore) no longer disposes the
         caller-owned parent interpreter when only a child interpreter was
         (re-)created via the "-child" / "-recreate" / "-reconfigure" command

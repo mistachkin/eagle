@@ -16,6 +16,10 @@ using System.Diagnostics;
 
 #if INTERACTIVE_COMMANDS
 using System.Globalization;
+
+#if XML
+using System.IO;
+#endif
 #endif
 
 using System.Reflection;
@@ -51,6 +55,14 @@ using SharedStringOps = Eagle._Components.Shared.StringOps;
 
 using PluginPair = System.Collections.Generic.KeyValuePair<
     string, Eagle._Wrappers.Plugin>;
+
+#if SHELL && INTERACTIVE_COMMANDS && XML
+using MemberHelpPair = System.Collections.Generic.KeyValuePair<
+    string, Eagle._Containers.Public.StringDictionary>;
+
+using MemberHelpDictionary = System.Collections.Generic.Dictionary<
+    string, Eagle._Containers.Public.StringDictionary>;
+#endif
 
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
@@ -449,6 +461,64 @@ namespace Eagle._Components.Private
         /// XML document.
         /// </summary>
         private static readonly string HelpXPath = "//help";
+
+        /// <summary>
+        /// The format string used to build an XPath expression that locates a
+        /// single member's documentation element, by its documentation comment
+        /// "member name", within an XML documentation file (e.g. one emitted by
+        /// the C# compiler).
+        /// </summary>
+        private static readonly string MemberXPath =
+            "/doc/members/member[@name='{0}']";
+
+        /// <summary>
+        /// The documentation comment "member name" prefix character for a type.
+        /// </summary>
+        private static readonly char TypePrefix = Characters.T;
+
+        /// <summary>
+        /// The documentation comment "member name" prefix character for a method.
+        /// </summary>
+        private static readonly char MethodPrefix = Characters.M;
+
+        /// <summary>
+        /// The documentation comment "member name" prefix character for a property.
+        /// </summary>
+        private static readonly char PropertyPrefix = Characters.P;
+
+        /// <summary>
+        /// The documentation comment "member name" prefix character for a field.
+        /// </summary>
+        private static readonly char FieldPrefix = Characters.F;
+
+        /// <summary>
+        /// The documentation comment "member name" prefix character for an event.
+        /// </summary>
+        private static readonly char EventPrefix = Characters.E;
+
+        /// <summary>
+        /// The special documentation comment member name for an instance constructor.
+        /// </summary>
+        private const string ConstructorName = "#ctor";
+
+        /// <summary>
+        /// The special documentation comment member name for a static constructor.
+        /// </summary>
+        private const string StaticConstructorName = "#cctor";
+
+        /// <summary>
+        /// The token appended (followed by the generic parameter count) to a
+        /// generic method definition name within a documentation comment member
+        /// name.
+        /// </summary>
+        private const string MethodArity = "``";
+
+        /// <summary>
+        /// The lower-bound specifier emitted for each dimension of a
+        /// multi-dimensional array within a documentation comment member name
+        /// (e.g. the "0:" seen in "[0:,0:]").
+        /// </summary>
+        private const string LowerArrayBound = "0:";
 #endif
 #endif
         #endregion
@@ -680,6 +750,1093 @@ namespace Eagle._Components.Private
         {
             return ExtractHelpFromScript(
                 GetBody(identifier as IProcedure), textFlags);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        /// <summary>
+        /// This method extracts all of the available documentation for the
+        /// specified member from an XML documentation file, such as the one
+        /// emitted by the C# compiler, adding it to the supplied dictionary.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter used to resolve the help for the assembly member,
+        /// if any.
+        /// </param>
+        /// <param name="constructorInfoList">
+        /// The list of reflected constructors whose documentation is to be
+        /// extracted.
+        /// </param>
+        /// <param name="stopOnError">
+        /// If this is non-zero, errors querying the member help will cause
+        /// that error to be immediately returned.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, receives the logical list of help information.
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
+        public static ReturnCode GetMemberHelp(
+            Interpreter interpreter,                 /* in */
+            ConstructorInfoList constructorInfoList, /* in */
+            bool stopOnError,                        /* in */
+            ref Result result                        /* out */
+            )
+        {
+            if (constructorInfoList == null)
+            {
+                result = "invalid constructor list";
+                return ReturnCode.Error;
+            }
+
+            MemberHelpDictionary help = null;
+
+            foreach (ConstructorInfo constructorInfo
+                    in constructorInfoList)
+            {
+                if (constructorInfo == null)
+                    continue;
+
+                if (GetMemberHelp(
+                        interpreter, constructorInfo, ref help,
+                        ref result) != ReturnCode.Ok)
+                {
+                    if (stopOnError)
+                        return ReturnCode.Error;
+                }
+            }
+
+            if (help == null)
+            {
+                result = "no help found";
+                return ReturnCode.Error;
+            }
+
+            StringList list = new StringList();
+
+            foreach (MemberHelpPair pair in help)
+            {
+                list.Add(pair.Key);
+
+                StringDictionary dictionary = pair.Value;
+
+                if (dictionary != null)
+                {
+                    list.Add(dictionary.KeysAndValuesToString(
+                        null, false));
+                }
+                else
+                {
+                    list.Add((string)null);
+                }
+            }
+
+            result = list;
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        /// <summary>
+        /// This method extracts all of the available documentation for the
+        /// specified member from an XML documentation file, such as the one
+        /// emitted by the C# compiler, adding it to the supplied dictionary.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter used to resolve the help for the assembly member,
+        /// if any.
+        /// </param>
+        /// <param name="propertyInfos">
+        /// The list of reflected properties whose documentation is to be
+        /// extracted.
+        /// </param>
+        /// <param name="memberName">
+        /// If this is non-null, it will be used to filter the logical list
+        /// of properties.
+        /// </param>
+        /// <param name="stopOnError">
+        /// If this is non-zero, errors querying the member help will cause
+        /// that error to be immediately returned.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, receives the logical list of help information.
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
+        public static ReturnCode GetMemberHelp(
+            Interpreter interpreter,      /* in */
+            PropertyInfo[] propertyInfos, /* in */
+            string memberName,            /* in: OPTIONAL */
+            bool stopOnError,             /* in */
+            ref Result result             /* out */
+            )
+        {
+            if (propertyInfos == null)
+            {
+                result = "invalid property list";
+                return ReturnCode.Error;
+            }
+
+            MemberHelpDictionary help = null;
+
+            foreach (PropertyInfo propertyInfo in propertyInfos)
+            {
+                if (propertyInfo == null)
+                    continue;
+
+                if ((memberName != null) &&
+                    !SharedStringOps.SystemEquals(
+                        propertyInfo.Name, memberName))
+                {
+                    continue;
+                }
+
+                if (GetMemberHelp(
+                        interpreter, propertyInfo, ref help,
+                        ref result) != ReturnCode.Ok)
+                {
+                    if (stopOnError)
+                        return ReturnCode.Error;
+                }
+            }
+
+            if (help == null)
+            {
+                result = "no help found";
+                return ReturnCode.Error;
+            }
+
+            StringList list = new StringList();
+
+            foreach (MemberHelpPair pair in help)
+            {
+                list.Add(pair.Key);
+
+                StringDictionary dictionary = pair.Value;
+
+                if (dictionary != null)
+                {
+                    list.Add(dictionary.KeysAndValuesToString(
+                        null, false));
+                }
+                else
+                {
+                    list.Add((string)null);
+                }
+            }
+
+            result = list;
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        /// <summary>
+        /// This method extracts all of the available documentation for the
+        /// specified member from an XML documentation file, such as the one
+        /// emitted by the C# compiler, adding it to the supplied dictionary.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter used to resolve the help for the assembly member,
+        /// if any.
+        /// </param>
+        /// <param name="methodInfoList">
+        /// The list of reflected methods whose documentation is to be extracted.
+        /// </param>
+        /// <param name="stopOnError">
+        /// If this is non-zero, errors querying the member help will cause
+        /// that error to be immediately returned.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, receives the logical list of help information.
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
+        public static ReturnCode GetMemberHelp(
+            Interpreter interpreter,       /* in */
+            MethodInfoList methodInfoList, /* in */
+            bool stopOnError,              /* in */
+            ref Result result              /* out */
+            )
+        {
+            if (methodInfoList == null)
+            {
+                result = "invalid method list";
+                return ReturnCode.Error;
+            }
+
+            MemberHelpDictionary help = null;
+
+            foreach (MethodInfo methodInfo in methodInfoList)
+            {
+                if (methodInfo == null)
+                    continue;
+
+                if (GetMemberHelp(
+                        interpreter, methodInfo, ref help,
+                        ref result) != ReturnCode.Ok)
+                {
+                    if (stopOnError)
+                        return ReturnCode.Error;
+                }
+            }
+
+            if (help == null)
+            {
+                result = "no help found";
+                return ReturnCode.Error;
+            }
+
+            StringList list = new StringList();
+
+            foreach (MemberHelpPair pair in help)
+            {
+                list.Add(pair.Key);
+
+                StringDictionary dictionary = pair.Value;
+
+                if (dictionary != null)
+                {
+                    list.Add(dictionary.KeysAndValuesToString(
+                        null, false));
+                }
+                else
+                {
+                    list.Add((string)null);
+                }
+            }
+
+            result = list;
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        /// <summary>
+        /// This method extracts all of the available documentation for the
+        /// specified member from an XML documentation file, such as the one
+        /// emitted by the C# compiler, adding it to the supplied dictionary.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter used to resolve the help for the assembly member,
+        /// if any.
+        /// </param>
+        /// <param name="memberInfo">
+        /// The reflected member (type, method, constructor, property, field, or
+        /// event) whose documentation is to be extracted.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, receives the logical list of help information.
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
+        public static ReturnCode GetMemberHelp(
+            Interpreter interpreter, /* in */
+            MemberInfo memberInfo,   /* in */
+            ref Result result        /* out */
+            )
+        {
+            MemberHelpDictionary help = null;
+
+            if (GetMemberHelp(
+                    interpreter, memberInfo, ref help,
+                    ref result) != ReturnCode.Ok)
+            {
+                return ReturnCode.Error;
+            }
+
+            if (help == null)
+            {
+                result = "no help found";
+                return ReturnCode.Error;
+            }
+
+            StringList list = new StringList();
+
+            foreach (MemberHelpPair pair in help)
+            {
+                list.Add(pair.Key);
+
+                StringDictionary dictionary = pair.Value;
+
+                if (dictionary != null)
+                {
+                    list.Add(dictionary.KeysAndValuesToString(
+                        null, false));
+                }
+                else
+                {
+                    list.Add((string)null);
+                }
+            }
+
+            result = list;
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        /// <summary>
+        /// This method extracts all of the available documentation for the
+        /// specified member from an XML documentation file, such as the one
+        /// emitted by the C# compiler, adding it to the supplied dictionary.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter used to resolve the help for the assembly member,
+        /// if any.
+        /// </param>
+        /// <param name="memberInfo">
+        /// The reflected member (type, method, constructor, property, field, or
+        /// event) whose documentation is to be extracted.
+        /// </param>
+        /// <param name="help">
+        /// This dictionary is created, if necessary, and (upon success) receives
+        /// an entry, keyed by the documentation comment "member name", whose
+        /// value is a dictionary of the documentation elements for the member
+        /// (e.g. "summary", "param0", "param1", "returns", etc.).
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
+        private static ReturnCode GetMemberHelp(
+            Interpreter interpreter,       /* in */
+            MemberInfo memberInfo,         /* in */
+            ref MemberHelpDictionary help, /* in, out */
+            ref Result error               /* out */
+            )
+        {
+            if (memberInfo == null)
+            {
+                error = "invalid member";
+                return ReturnCode.Error;
+            }
+
+            Type type = memberInfo.DeclaringType;
+
+            if (type == null)
+            {
+                error = "invalid type";
+                return ReturnCode.Error;
+            }
+
+            Assembly assembly = type.Assembly;
+
+            if (assembly == null)
+            {
+                error = "invalid assembly";
+                return ReturnCode.Error;
+            }
+
+            string fileName;
+
+            try
+            {
+                string location = assembly.Location;
+
+                if (String.IsNullOrEmpty(location))
+                {
+                    error = "invalid assembly location";
+                    return ReturnCode.Error;
+                }
+
+                if (!File.Exists(location))
+                {
+                    error = "assembly location does not exist";
+                    return ReturnCode.Error;
+                }
+
+                fileName = String.Format(
+                    "{0}{1}", Path.Combine(Path.GetDirectoryName(
+                    location), Path.GetFileNameWithoutExtension(
+                    location)), FileExtension.Markup);
+            }
+            catch (Exception e)
+            {
+                error = e;
+                return ReturnCode.Error;
+            }
+
+            return GetMemberHelp(
+                fileName, memberInfo, ref help, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        /// <summary>
+        /// This method extracts all of the available documentation for the
+        /// specified member from an XML documentation file, such as the one
+        /// emitted by the C# compiler, adding it to the supplied dictionary.
+        /// </summary>
+        /// <param name="fileName">
+        /// The name of the XML documentation file to query.  Its format is
+        /// assumed to conform to that emitted by the compiler.
+        /// </param>
+        /// <param name="memberInfo">
+        /// The reflected member (type, method, constructor, property, field, or
+        /// event) whose documentation is to be extracted.
+        /// </param>
+        /// <param name="help">
+        /// This dictionary is created, if necessary, and (upon success) receives
+        /// an entry, keyed by the documentation comment "member name", whose
+        /// value is a dictionary of the documentation elements for the member
+        /// (e.g. "summary", "param0", "param1", "returns", etc.).
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
+        private static ReturnCode GetMemberHelp(
+            string fileName,               /* in */
+            MemberInfo memberInfo,         /* in */
+            ref MemberHelpDictionary help, /* in, out */
+            ref Result error               /* out */
+            )
+        {
+            if (String.IsNullOrEmpty(fileName))
+            {
+                error = "invalid file name";
+                return ReturnCode.Error;
+            }
+
+            if (memberInfo == null)
+            {
+                error = "invalid member";
+                return ReturnCode.Error;
+            }
+
+            try
+            {
+                //
+                // NOTE: Next, translate the reflected member into the
+                //       documentation comment "member name" used to locate it
+                //       within the file.
+                //
+                string memberName = null;
+
+                if (GetMemberElementName(
+                        memberInfo, ref memberName, ref error) != ReturnCode.Ok)
+                {
+                    return ReturnCode.Error;
+                }
+
+                //
+                // NOTE: Then, load the (whole) XML documentation file.
+                //
+                XmlDocument document = null;
+
+                if (XmlOps.LoadFile(
+                        fileName, ref document, ref error) != ReturnCode.Ok)
+                {
+                    return ReturnCode.Error;
+                }
+
+                //
+                // NOTE: Using XPath, locate the single documentation element
+                //       for the member, by its (translated) member name.
+                //
+                XmlNode memberNode = document.SelectSingleNode(
+                    String.Format(MemberXPath, memberName));
+
+                if (memberNode == null)
+                {
+                    error = String.Format(
+                        "no documentation found for member {0}",
+                        FormatOps.WrapOrNull(memberName));
+
+                    return ReturnCode.Error;
+                }
+
+                //
+                // NOTE: Finally, collect all of the documentation elements for
+                //       the member and add them to the outer dictionary, keyed
+                //       by the (translated) member name.
+                //
+                if (help == null)
+                    help = new MemberHelpDictionary();
+
+                help[memberName] = GetMemberElementHelp(memberNode);
+                return ReturnCode.Ok;
+            }
+            catch (Exception e)
+            {
+                error = e;
+            }
+
+            return ReturnCode.Error;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        /// <summary>
+        /// This method translates the specified reflected member into the
+        /// documentation comment "member name" string (e.g.
+        /// "M:Some.Namespace.Type.Method(System.String)") used by the compiler
+        /// when emitting an XML documentation file.
+        /// </summary>
+        /// <param name="memberInfo">
+        /// The reflected member to translate.
+        /// </param>
+        /// <param name="name">
+        /// Upon success, receives the documentation comment member name.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
+        private static ReturnCode GetMemberElementName(
+            MemberInfo memberInfo, /* in */
+            ref string name,       /* out */
+            ref Result error       /* out */
+            )
+        {
+            if (memberInfo == null)
+            {
+                error = "invalid member";
+                return ReturnCode.Error;
+            }
+
+            //
+            // NOTE: Determine the single-character element prefix based on the
+            //       kind of member being translated.
+            //
+            char prefix;
+
+            switch (memberInfo.MemberType)
+            {
+                case MemberTypes.TypeInfo:
+                case MemberTypes.NestedType:
+                    {
+                        prefix = TypePrefix;
+                        break;
+                    }
+                case MemberTypes.Constructor:
+                case MemberTypes.Method:
+                    {
+                        prefix = MethodPrefix;
+                        break;
+                    }
+                case MemberTypes.Property:
+                    {
+                        prefix = PropertyPrefix;
+                        break;
+                    }
+                case MemberTypes.Field:
+                    {
+                        prefix = FieldPrefix;
+                        break;
+                    }
+                case MemberTypes.Event:
+                    {
+                        prefix = EventPrefix;
+                        break;
+                    }
+                default:
+                    {
+                        error = String.Format(
+                            "unsupported member type {0}",
+                            FormatOps.WrapOrNull(memberInfo.MemberType));
+
+                        return ReturnCode.Error;
+                    }
+            }
+
+            StringBuilder builder = StringBuilderFactory.Create();
+
+            builder.Append(prefix);
+            builder.Append(Characters.Colon);
+
+            Type type = memberInfo as Type;
+
+            if (type != null)
+            {
+                //
+                // NOTE: For a type, the element name is simply its (full)
+                //       documentation comment type name.
+                //
+                AppendMemberTypeName(builder, type);
+            }
+            else
+            {
+                //
+                // NOTE: Otherwise, start with the declaring type, followed
+                //       by the member name itself.
+                //
+                AppendMemberTypeName(builder, memberInfo.DeclaringType);
+                builder.Append(Characters.Period);
+
+                //
+                // NOTE: A generic method call resolves to a CLOSED
+                //       (constructed) method; however, the documentation
+                //       comment identifier always uses the generic method
+                //       DEFINITION (its arity plus the ``0/``1 type-param
+                //       placeholders).  Normalize to that definition so
+                //       the emitted arity and parameter types match the
+                //       compiler-emitted XML.
+                //
+                MethodBase methodBase = memberInfo as MethodBase;
+                MethodInfo methodInfo = memberInfo as MethodInfo;
+
+                if ((methodInfo != null) && methodInfo.IsGenericMethod &&
+                    !methodInfo.IsGenericMethodDefinition)
+                {
+                    methodBase = methodInfo.GetGenericMethodDefinition();
+                }
+
+                if ((methodBase != null) && methodBase.IsConstructor)
+                {
+                    //
+                    // NOTE: Constructors use a special member name.
+                    //
+                    builder.Append(methodBase.IsStatic ?
+                        StaticConstructorName : ConstructorName);
+                }
+                else
+                {
+                    //
+                    // NOTE: For an explicitly implemented interface member,
+                    //       the period separators are replaced with number
+                    //       signs.
+                    //
+                    builder.Append(memberInfo.Name.Replace(
+                        Characters.Period, Characters.NumberSign));
+                }
+
+                //
+                // NOTE: A generic method definition includes the count of
+                //       its generic type parameters.
+                //
+                if ((methodBase != null) &&
+                    methodBase.IsGenericMethodDefinition)
+                {
+                    Type[] genericArguments = methodBase.GetGenericArguments();
+
+                    if (genericArguments != null)
+                    {
+                        builder.Append(MethodArity);
+                        builder.Append(genericArguments.Length);
+                    }
+                }
+
+                //
+                // NOTE: A method or constructor encodes the type of each of its
+                //       parameters, if any.
+                //
+                if (methodBase != null)
+                    AppendMemberParameters(builder, methodBase.GetParameters());
+
+                //
+                // NOTE: A conversion operator additionally encodes its return
+                //       type, following a tilde.
+                //
+                if ((methodInfo != null) && IsConversionOperator(methodInfo))
+                {
+                    builder.Append(Characters.Tilde);
+                    AppendMemberTypeName(builder, methodInfo.ReturnType);
+                }
+            }
+
+            name = StringBuilderCache.GetStringAndRelease(ref builder);
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        /// <summary>
+        /// This method appends the parenthesized, comma-separated list of
+        /// (documentation comment) parameter type names to the specified string
+        /// builder.  Nothing is appended when there are no parameters.
+        /// </summary>
+        /// <param name="builder">
+        /// The string builder to append to.
+        /// </param>
+        /// <param name="parameters">
+        /// The parameters whose types are to be appended.
+        /// </param>
+        private static void AppendMemberParameters(
+            StringBuilder builder,     /* in, out */
+            ParameterInfo[] parameters /* in */
+            )
+        {
+            if ((builder == null) || (parameters == null))
+                return;
+
+            int length = parameters.Length;
+
+            if (length == 0)
+                return;
+
+            builder.Append(Characters.OpenParenthesis);
+
+            for (int index = 0; index < length; index++)
+            {
+                if (index > 0)
+                    builder.Append(Characters.Comma);
+
+                ParameterInfo parameter = parameters[index];
+
+                if (parameter == null)
+                    continue;
+
+                AppendMemberTypeName(builder, parameter.ParameterType);
+            }
+
+            builder.Append(Characters.CloseParenthesis);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        /// <summary>
+        /// This method appends the documentation comment type name for the
+        /// specified type to the specified string builder, handling
+        /// by-reference, pointer, array, generic parameter, and (possibly
+        /// nested and/or generic) nominal types.
+        /// </summary>
+        /// <param name="builder">
+        /// The string builder to append to.
+        /// </param>
+        /// <param name="type">
+        /// The type whose documentation comment name is to be appended.
+        /// </param>
+        private static void AppendMemberTypeName(
+            StringBuilder builder, /* in, out */
+            Type type              /* in */
+            )
+        {
+            if ((builder == null) || (type == null))
+                return;
+
+            if (type.IsByRef)
+            {
+                //
+                // NOTE: A by-reference type is its element type, followed
+                //       by an "at" sign.
+                //
+                AppendMemberTypeName(builder, type.GetElementType());
+                builder.Append(Characters.AtSign);
+            }
+            else if (type.IsPointer)
+            {
+                //
+                // NOTE: A pointer type is its element type, followed by an
+                //       asterisk.
+                //
+                AppendMemberTypeName(builder, type.GetElementType());
+                builder.Append(Characters.Asterisk);
+            }
+            else if (type.IsArray)
+            {
+                //
+                // NOTE: An array type is its element type, followed by the
+                //       (possibly multi-dimensional) rank specifier.
+                //
+                AppendMemberTypeName(builder, type.GetElementType());
+
+                int rank = type.GetArrayRank();
+
+                builder.Append(Characters.OpenBracket);
+
+                if (rank > 1)
+                {
+                    for (int index = 0; index < rank; index++)
+                    {
+                        if (index > 0)
+                            builder.Append(Characters.Comma);
+
+                        builder.Append(LowerArrayBound);
+                    }
+                }
+
+                builder.Append(Characters.CloseBracket);
+            }
+            else if (type.IsGenericParameter)
+            {
+                //
+                // NOTE: A generic parameter is one grave accent (for a type)
+                //       or two (for a method), followed by its zero-based
+                //       position.
+                //
+                builder.Append(Characters.GraveAccent);
+
+                if (type.DeclaringMethod != null)
+                    builder.Append(Characters.GraveAccent);
+
+                builder.Append(type.GenericParameterPosition);
+            }
+            else
+            {
+                //
+                // NOTE: Otherwise, this is an ordinary (possibly nested
+                //       and/or generic) nominal type.
+                //
+                AppendNominalTypeName(builder, type);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        /// <summary>
+        /// This method appends the documentation comment name for the specified
+        /// nominal type (i.e. one that is not an array, pointer, by-reference,
+        /// or generic parameter type) to the specified string builder, including
+        /// its namespace, any enclosing types, and any generic type arguments.
+        /// </summary>
+        /// <param name="builder">
+        /// The string builder to append to.
+        /// </param>
+        /// <param name="type">
+        /// The nominal type whose documentation comment name is to be appended.
+        /// </param>
+        private static void AppendNominalTypeName(
+            StringBuilder builder, /* in, out */
+            Type type              /* in */
+            )
+        {
+            if (builder == null)
+                return;
+
+            //
+            // NOTE: Build the chain of enclosing types, from the outermost
+            //       type inward to this one, so that each nesting level can
+            //       be emitted (with its own share of the generic arguments),
+            //       in order.
+            //
+            List<Type> types = new List<Type>();
+
+            for (Type currentType = type; currentType != null;
+                    currentType = currentType.DeclaringType)
+            {
+                types.Add(currentType);
+            }
+
+            types.Reverse();
+
+            //
+            // NOTE: These are ALL of the (cumulative) generic arguments used
+            //       by the innermost type; each nesting level consumes its
+            //       own share, in declaration order.
+            //
+            Type[] arguments = type.IsGenericType ?
+                type.GetGenericArguments() : null;
+
+            int typeCount = types.Count;
+            int consumedCount = 0;
+
+            for (int level = 0; level < typeCount; level++)
+            {
+                Type currentType = types[level];
+
+                if (level > 0)
+                {
+                    //
+                    // NOTE: Enclosing types are separated with a period.
+                    //
+                    builder.Append(Characters.Period);
+                }
+                else if (!String.IsNullOrEmpty(currentType.Namespace))
+                {
+                    //
+                    // NOTE: The outermost type is prefixed with its namespace.
+                    //
+                    builder.Append(currentType.Namespace);
+                    builder.Append(Characters.Period);
+                }
+
+                //
+                // NOTE: Append the simple type name, without any generic arity
+                //       marker (the actual arguments, if any, are appended
+                //       below instead).
+                //
+                string simpleName = currentType.Name;
+
+                int markerIndex = simpleName.IndexOf(Characters.GraveAccent);
+
+                if (markerIndex != Index.Invalid)
+                    simpleName = simpleName.Substring(0, markerIndex);
+
+                builder.Append(simpleName);
+
+                //
+                // NOTE: How many generic arguments belong to THIS nesting level
+                //       (i.e. those not already consumed by an enclosing type)?
+                //
+                int totalCount = 0;
+
+                if (currentType.IsGenericType)
+                {
+                    Type[] genericArguments = currentType.GetGenericArguments();
+
+                    if (genericArguments != null)
+                        totalCount = genericArguments.Length;
+                }
+
+                int ownedCount = totalCount - consumedCount;
+
+                if ((arguments != null) && (ownedCount > 0))
+                {
+                    builder.Append(Characters.OpenBrace);
+
+                    for (int index = 0; index < ownedCount; index++)
+                    {
+                        if (index > 0)
+                            builder.Append(Characters.Comma);
+
+                        AppendMemberTypeName(
+                            builder, arguments[consumedCount + index]);
+                    }
+
+                    builder.Append(Characters.CloseBrace);
+                    consumedCount += ownedCount;
+                }
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        /// <summary>
+        /// This method determines whether the specified method represents a
+        /// user-defined implicit or explicit conversion operator.
+        /// </summary>
+        /// <param name="methodInfo">
+        /// The method to check.
+        /// </param>
+        /// <returns>
+        /// Non-zero if the method is a conversion operator; otherwise, zero.
+        /// </returns>
+        private static bool IsConversionOperator(
+            MethodInfo methodInfo /* in */
+            )
+        {
+            if ((methodInfo == null) || !methodInfo.IsSpecialName)
+                return false;
+
+            string methodName = methodInfo.Name;
+
+            return String.Equals(
+                    methodName, MarshalOps.ImplicitOperatorMethodName,
+                    SharedStringOps.SystemComparisonType) ||
+                String.Equals(
+                    methodName, MarshalOps.ExplicitOperatorMethodName,
+                    SharedStringOps.SystemComparisonType);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        /// <summary>
+        /// This method collects all of the child documentation elements of the
+        /// specified member node into a dictionary, keyed by element name.  Any
+        /// element name used more than once (e.g. "param") is disambiguated with
+        /// a zero-based integer suffix (e.g. "param0", "param1").
+        /// </summary>
+        /// <param name="memberNode">
+        /// The member documentation node whose child elements are collected.
+        /// </param>
+        /// <returns>
+        /// The dictionary of documentation elements for the member.
+        /// </returns>
+        private static StringDictionary GetMemberElementHelp(
+            XmlNode memberNode /* in */
+            )
+        {
+            StringDictionary result = new StringDictionary();
+
+            if (memberNode == null)
+                return result;
+
+            XmlNodeList childNodes = memberNode.ChildNodes;
+
+            if (childNodes == null)
+                return result;
+
+            //
+            // NOTE: First, count how many times each child element name is used
+            //       so that only the repeated ones are given an integer suffix.
+            //
+            Dictionary<string, int> elementCounts = new Dictionary<string, int>();
+
+            foreach (XmlNode childNode in childNodes)
+            {
+                if ((childNode == null) ||
+                    (childNode.NodeType != XmlNodeType.Element))
+                {
+                    continue;
+                }
+
+                string elementName = childNode.Name;
+
+                if (elementName == null)
+                    continue;
+
+                int elementCount;
+
+                if (elementCounts.TryGetValue(elementName, out elementCount))
+                    elementCounts[elementName] = elementCount + 1;
+                else
+                    elementCounts.Add(elementName, 1);
+            }
+
+            //
+            // NOTE: Then, add each child element to the dictionary, appending a
+            //       zero-based integer suffix to the key of any element name
+            //       that is used more than once.
+            //
+            Dictionary<string, int> indexes = new Dictionary<string, int>();
+
+            foreach (XmlNode childNode in childNodes)
+            {
+                if ((childNode == null) ||
+                    (childNode.NodeType != XmlNodeType.Element))
+                {
+                    continue;
+                }
+
+                string elementName = childNode.Name;
+
+                if (elementName == null)
+                    continue;
+
+                string key = elementName; // e.g. "param"
+                int elementCount;
+
+                if (elementCounts.TryGetValue(
+                        elementName, out elementCount) && (elementCount > 1))
+                {
+                    int elementIndex;
+
+                    if (!indexes.TryGetValue(elementName, out elementIndex))
+                        elementIndex = 0;
+
+                    indexes[elementName] = elementIndex + 1;
+                    key = String.Format("{0}{1}", elementName, elementIndex);
+                }
+
+                string value = childNode.InnerText;
+
+                result[key] = (value != null) ? value.Trim() : null;
+            }
+
+            return result;
         }
 #endif
 

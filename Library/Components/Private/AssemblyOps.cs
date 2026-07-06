@@ -1269,8 +1269,8 @@ namespace Eagle._Components.Private
         /// A directory path for the assembly.  This method cannot return null.
         /// </returns>
         public static string GetPath(
-            Interpreter interpreter, /* OPTIONAL */
-            Assembly assembly
+            Interpreter interpreter, /* in: OPTIONAL */
+            Assembly assembly        /* in */
             ) /* CANNOT RETURN NULL */
         {
             //

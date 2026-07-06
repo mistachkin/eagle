@@ -862,4 +862,180 @@ runTest {test object-3.18 {-returntype option with [object invoke]} -setup {
 
 ###############################################################################
 
+runTest {test object-3.19 {
+  invokeraw -invoke and -invokeall sub-command redirects
+} -body {
+  set x [object create System.Int32]; # NOTE: Immutable zero.
+
+  list [object invokeraw -invoke $x ToString] \
+      [object invokeraw -invokeall $x ToString ToString] \
+      [object invokeraw -invokeall -keepresults $x ToString ToString]
+} -cleanup {
+  unset -nocomplain x
+} -constraints {eagle command.object} -result {0 {Ok 0} {Ok 0 Ok 0}}}
+
+###############################################################################
+
+runTest {test object-3.20 {
+  object invoke -help does not invoke the member
+} -setup {
+  set sl [object create Eagle._Containers.Public.StringList]
+} -body {
+  object invoke $sl Add a; object invoke $sl Add b
+
+  set before [object invoke $sl Count]
+
+  catch {object invoke -help $sl Add c}; # NOTE: -help must NOT invoke.
+
+  list $before [object invoke $sl Count]
+} -cleanup {
+  catch {object dispose $sl}
+
+  unset -nocomplain before sl
+} -constraints {eagle command.object compile.SHELL compile.INTERACTIVE_COMMANDS\
+compile.XML} -result {2 2}}
+
+###############################################################################
+
+runTest {test object-3.21 {
+  object invoke -help returns member documentation
+} -setup {
+  set sl [object create Eagle._Containers.Public.StringList]
+} -body {
+  set help [object invoke -help $sl ToString]
+  set id M:Eagle._Containers.Public.StringList.ToString
+
+  list [dict exists $help $id] [dict exists [dict get $help $id] summary]
+} -cleanup {
+  catch {object dispose $sl}
+
+  unset -nocomplain help id sl
+} -constraints {eagle command.dict command.object compile.SHELL\
+compile.INTERACTIVE_COMMANDS compile.XML file_Eagle.xml} -result {True True}}
+
+###############################################################################
+
+runTest {test object-3.22 {
+  object create -help returns constructor documentation
+} -body {
+  set help [object create -help Eagle._Containers.Public.StringList]
+  set id M:Eagle._Containers.Public.StringList.#ctor
+  list [dict exists $help $id] [dict exists [dict get $help $id] summary]
+} -cleanup {
+  unset -nocomplain help id
+} -constraints {eagle command.dict command.object compile.SHELL\
+compile.INTERACTIVE_COMMANDS compile.XML file_Eagle.xml} -result {True True}}
+
+###############################################################################
+
+runTest {test object-3.23 {
+  object create -help for an undocumented type
+} -body {
+  list [catch {object create -help System.Object} msg] $msg
+} -cleanup {
+  unset -nocomplain msg
+} -constraints {eagle command.object compile.SHELL compile.INTERACTIVE_COMMANDS\
+compile.XML} -result {1 {no help found}}}
+
+###############################################################################
+
+runTest {test object-3.24 {
+  object -help member IDs encode parameter counts
+} -setup {
+  set sl [object create Eagle._Containers.Public.StringList]
+  object invoke $sl Add x
+} -body {
+  set n0 [object invoke -help $sl ToString]
+  set n1 [object invoke -help $sl Add hello]
+  set n2 [object create -help Eagle._Containers.Public.StringList $sl 1]
+  set k0 [lindex [dict keys $n0] 0]
+  set k1 [lindex [dict keys $n1] 0]
+  set k2 [lindex [dict keys $n2] 0]
+
+  list $k0 [dict keys [dict get $n0 $k0]] \
+      $k1 [dict keys [dict get $n1 $k1]] \
+      $k2 [dict keys [dict get $n2 $k2]]
+} -cleanup {
+  catch {object dispose $sl}
+
+  unset -nocomplain n0 n1 n2 k0 k1 k2 sl
+} -constraints {eagle command.dict command.object compile.SHELL\
+compile.INTERACTIVE_COMMANDS compile.XML file_Eagle.xml} -result \
+{M:Eagle._Containers.Public.StringList.ToString {summary returns}\
+M:Eagle._Containers.Public.StringList.Add(System.String) {summary param}\
+M:Eagle._Containers.Public.StringList.#ctor(System.Collections.IEnumerable,System.Boolean)\
+{summary param0 param1}}}
+
+###############################################################################
+
+runTest {test object-3.25 {
+  object -help member IDs format generic-argument and array parameter types
+} -setup {
+  set sl  [object create Eagle._Containers.Public.StringList]
+  set sl2 [object create Eagle._Containers.Public.StringList]
+  object invoke $sl2 Add y
+} -body {
+  set g [lindex [dict keys [object invoke -help $sl Add $sl2]] 0]
+  set a [lindex [dict keys [object invoke -help \
+      Eagle._Components.Public.ClientData Pack true a b]] 0]
+
+  list [string equal $g \
+      {M:Eagle._Containers.Public.StringList.Add(System.Collections.Generic.IEnumerable{System.String})}] \
+      [string equal $a \
+      {M:Eagle._Components.Public.ClientData.Pack(System.Boolean,System.Object[])}]
+} -cleanup {
+  catch {object dispose $sl2}
+  catch {object dispose $sl}
+
+  unset -nocomplain g a sl sl2
+} -constraints {eagle command.dict command.object compile.SHELL \
+compile.INTERACTIVE_COMMANDS compile.XML file_Eagle.xml} -result {True True}}
+
+###############################################################################
+
+runTest {test object-3.26 {
+  object -help member ID for a generic method uses the open definition
+} -setup {
+  set test [object create -alias Eagle._Tests.Default]
+  set e [object create -alias ResolveEventArgs test]
+} -body {
+  set h [object invoke -methodtypes [list ResolveEventArgs] -help $test \
+      TestTakeGenericEventHandler null null $e]
+
+  set id [lindex [dict keys $h] 0]
+
+  list [string equal $id \
+      {M:Eagle._Tests.Default.TestTakeGenericEventHandler``1(System.EventHandler{``0},System.Object,``0)}] \
+      [dict keys [dict get $h $id]]
+} -cleanup {
+  catch {object dispose $e}
+  catch {object dispose $test}
+
+  unset -nocomplain h id e test
+} -constraints {eagle command.dict command.object compile.SHELL\
+compile.INTERACTIVE_COMMANDS compile.XML file_Eagle.xml compile.TEST\
+Eagle._Tests.Default.TestTakeGenericEventHandler} -result \
+{True {summary typeparam param0 param1 param2}}}
+
+###############################################################################
+
+runTest {test object-3.27 {
+  object -help returns property documentation with a P: member ID
+} -setup {
+  set sl [object create Eagle._Containers.Public.StringList]
+} -body {
+  set h [object invoke -help $sl Length]
+  set id [lindex [dict keys $h] 0]
+
+  list [string equal $id P:Eagle._Containers.Public.StringList.Length] \
+      [dict keys [dict get $h $id]]
+} -cleanup {
+  catch {object dispose $sl}
+
+  unset -nocomplain h id sl
+} -constraints {eagle command.dict command.object compile.SHELL\
+compile.INTERACTIVE_COMMANDS compile.XML file_Eagle.xml} -result {True summary}}
+
+###############################################################################
+
 source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

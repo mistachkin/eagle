@@ -2285,6 +2285,8 @@ namespace Eagle._Components.Private
                 new Option(null, OptionFlags.None, Index.Invalid,
                     Index.Invalid, "-noinvoke", null),
                 new Option(null, OptionFlags.None, Index.Invalid,
+                    Index.Invalid, "-help", null),
+                new Option(null, OptionFlags.None, Index.Invalid,
                     Index.Invalid, "-noargs", null),
                 new Option(null, OptionFlags.MustHaveIntegerValue,
                     Index.Invalid, Index.Invalid, "-limit", null),
@@ -2554,6 +2556,8 @@ namespace Eagle._Components.Private
                     Index.Invalid, "-nodispose", null),
                 new Option(null, OptionFlags.None, Index.Invalid,
                     Index.Invalid, "-noinvoke", null),
+                new Option(null, OptionFlags.None, Index.Invalid,
+                    Index.Invalid, "-help", null),
                 new Option(null, OptionFlags.None, Index.Invalid,
                     Index.Invalid, "-noargs", null),
                 new Option(null, OptionFlags.MustHaveIntegerValue,
@@ -3456,6 +3460,8 @@ namespace Eagle._Components.Private
                     new Variant(DefaultMarshalFlags)),
                 new Option(null, OptionFlags.None, Index.Invalid,
                     Index.Invalid, "-noinvoke", null),
+                new Option(null, OptionFlags.None, Index.Invalid,
+                    Index.Invalid, "-help", null),
                 new Option(null, OptionFlags.None, Index.Invalid,
                     Index.Invalid, "-noargs", null),
                 new Option(null, OptionFlags.Ignored, Index.Invalid,
@@ -4373,6 +4379,10 @@ namespace Eagle._Components.Private
         /// <param name="invoke">
         /// Non-zero if a member is about to be invoked.
         /// </param>
+        /// <param name="help">
+        /// Upon return, receives non-zero if the matched member should be
+        /// looked up in the help file instead of being invoked.
+        /// </param>
         /// <param name="bindingFlags">
         /// The binding flags to be examined and possibly modified in place.
         /// </param>
@@ -4385,6 +4395,7 @@ namespace Eagle._Components.Private
             Type objectType,                   /* in */
             int index,                         /* in */
             bool invoke,                       /* in */
+            bool help,                         /* in */
             ref BindingFlags bindingFlags      /* in, out */
             )
         {
@@ -4397,7 +4408,7 @@ namespace Eagle._Components.Private
             if (FlagOps.HasFlags(
                     objectOptionType, ObjectOptionType.Create, true))
             {
-                if ((index == Index.Invalid) && invoke &&
+                if ((index == Index.Invalid) && invoke && !help &&
                     (objectType != null) &&
                     (objectType.IsPrimitive || objectType.IsValueType))
                 {
@@ -5333,6 +5344,10 @@ namespace Eagle._Components.Private
         /// Upon return, receives non-zero if the matched member should be
         /// invoked.
         /// </param>
+        /// <param name="help">
+        /// Upon return, receives non-zero if the matched member should be
+        /// looked up in the help file instead of being invoked.
+        /// </param>
         /// <param name="noArgs">
         /// Upon return, receives non-zero if argument processing is disabled.
         /// </param>
@@ -5368,6 +5383,7 @@ namespace Eagle._Components.Private
             out bool strictMember,
             out bool strictArgs,
             out bool invoke,
+            out bool help,
             out bool noArgs,
             out bool arrayAsValue,
             out bool arrayAsLink,
@@ -5404,9 +5420,9 @@ namespace Eagle._Components.Private
                 out limit, out index, out noByRef, out verbose,
                 out strictType, out strictMember, out strictArgs,
                 out identity, out typeIdentity, out noNestedObject,
-                out noNestedMember, out noCase, out invoke, out noArgs,
-                out arrayAsValue, out arrayAsLink, out noMutateBindingFlags,
-                out debug, out trace);
+                out noNestedMember, out noCase, out invoke, out help,
+                out noArgs, out arrayAsValue, out arrayAsLink,
+                out noMutateBindingFlags, out debug, out trace);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -5489,6 +5505,10 @@ namespace Eagle._Components.Private
         /// Upon return, receives non-zero if the matched member should be
         /// invoked.
         /// </param>
+        /// <param name="help">
+        /// Upon return, receives non-zero if the matched member should be
+        /// looked up in the help file instead of being invoked.
+        /// </param>
         /// <param name="noArgs">
         /// Upon return, receives non-zero if argument processing is disabled.
         /// </param>
@@ -5527,6 +5547,7 @@ namespace Eagle._Components.Private
             out bool strictMember,
             out bool strictArgs,
             out bool invoke,
+            out bool help,
             out bool noArgs,
             out bool arrayAsValue,
             out bool arrayAsLink,
@@ -5560,9 +5581,9 @@ namespace Eagle._Components.Private
                 out limit, out index, out noByRef, out verbose,
                 out strictType, out strictMember, out strictArgs,
                 out identity, out typeIdentity, out noNestedObject,
-                out noNestedMember, out noCase, out invoke, out noArgs,
-                out arrayAsValue, out arrayAsLink, out noMutateBindingFlags,
-                out debug, out trace);
+                out noNestedMember, out noCase, out invoke, out help,
+                out noArgs, out arrayAsValue, out arrayAsLink,
+                out noMutateBindingFlags, out debug, out trace);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -5662,6 +5683,10 @@ namespace Eagle._Components.Private
         /// Upon return, receives non-zero if the matched member should be
         /// invoked.
         /// </param>
+        /// <param name="help">
+        /// Upon return, receives non-zero if the matched member should be
+        /// looked up in the help file instead of being invoked.
+        /// </param>
         /// <param name="noArgs">
         /// Upon return, receives non-zero if argument processing is disabled.
         /// </param>
@@ -5709,6 +5734,7 @@ namespace Eagle._Components.Private
             out bool strictArgs,
             out bool noCase,
             out bool invoke,
+            out bool help,
             out bool noArgs,
             out bool arrayAsValue,
             out bool arrayAsLink,
@@ -5739,9 +5765,9 @@ namespace Eagle._Components.Private
                 out limit, out index, out noByRef, out verbose,
                 out strictType, out strictMember, out strictArgs,
                 out identity, out typeIdentity, out noNestedObject,
-                out noNestedMember, out noCase, out invoke, out noArgs,
-                out arrayAsValue, out arrayAsLink, out noMutateBindingFlags,
-                out debug, out trace);
+                out noNestedMember, out noCase, out invoke, out help,
+                out noArgs, out arrayAsValue, out arrayAsLink,
+                out noMutateBindingFlags, out debug, out trace);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -5879,6 +5905,10 @@ namespace Eagle._Components.Private
         /// Upon return, receives non-zero if the matched member should be
         /// invoked.
         /// </param>
+        /// <param name="help">
+        /// Upon return, receives non-zero if the matched member should be
+        /// looked up in the help file instead of being invoked.
+        /// </param>
         /// <param name="noArgs">
         /// Upon return, receives non-zero if argument processing is disabled.
         /// </param>
@@ -5937,6 +5967,7 @@ namespace Eagle._Components.Private
             out bool noNestedMember,
             out bool noCase,
             out bool invoke,
+            out bool help,
             out bool noArgs,
             out bool arrayAsValue,
             out bool arrayAsLink,
@@ -6028,6 +6059,13 @@ namespace Eagle._Components.Private
 
             if ((options != null) && options.CheckPresent("-noinvoke"))
                 invoke = false;
+
+            ///////////////////////////////////////////////////////////////////
+
+            help = false;
+
+            if ((options != null) && options.CheckPresent("-help"))
+                help = true;
 
             ///////////////////////////////////////////////////////////////////
 
@@ -6986,6 +7024,10 @@ namespace Eagle._Components.Private
         /// Upon return, receives non-zero if the matched member should be
         /// invoked.
         /// </param>
+        /// <param name="help">
+        /// Upon return, receives non-zero if the matched member should be
+        /// looked up in the help file instead of being invoked.
+        /// </param>
         /// <param name="noArgs">
         /// Upon return, receives non-zero if argument processing is disabled.
         /// </param>
@@ -7030,6 +7072,7 @@ namespace Eagle._Components.Private
             out bool noNestedObject,
             out bool noCase,
             out bool invoke,
+            out bool help,
             out bool noArgs,
             out bool arrayAsValue,
             out bool arrayAsLink,
@@ -7086,6 +7129,13 @@ namespace Eagle._Components.Private
 
             if ((options != null) && options.CheckPresent("-noinvoke"))
                 invoke = false;
+
+            ///////////////////////////////////////////////////////////////////
+
+            help = false;
+
+            if ((options != null) && options.CheckPresent("-help"))
+                help = true;
 
             ///////////////////////////////////////////////////////////////////
 
@@ -7824,6 +7874,10 @@ namespace Eagle._Components.Private
         /// Upon return, receives non-zero if the matched member should be
         /// invoked.
         /// </param>
+        /// <param name="help">
+        /// Upon return, receives non-zero if the matched member should be
+        /// looked up in the help file instead of being invoked.
+        /// </param>
         /// <param name="noArgs">
         /// Upon return, receives non-zero if argument processing is disabled.
         /// </param>
@@ -7861,6 +7915,7 @@ namespace Eagle._Components.Private
             out bool noNestedObject,
             out bool noCase,
             out bool invoke,
+            out bool help,
             out bool noArgs,
             out bool arrayAsValue,
             out bool arrayAsLink,
@@ -7881,8 +7936,8 @@ namespace Eagle._Components.Private
                 out memberValueFlags, out memberTypes, out bindingFlags,
                 out marshalFlags, out reorderFlags, out byRefArgumentFlags,
                 out noByRef, out verbose, out strictType, out strictArgs,
-                out noNestedObject, out noCase, out invoke, out noArgs,
-                out arrayAsValue, out arrayAsLink, out trace);
+                out noNestedObject, out noCase, out invoke, out help,
+                out noArgs, out arrayAsValue, out arrayAsLink, out trace);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -9343,6 +9398,7 @@ namespace Eagle._Components.Private
             bool strictMember;
             bool strictArgs;
             bool invoke;
+            bool help;
             bool noArgs;
             bool arrayAsValue;
             bool arrayAsLink;
@@ -9355,8 +9411,8 @@ namespace Eagle._Components.Private
                 out reorderFlags, out byRefArgumentFlags, out methodTypes,
                 out parameterTypes, out parameterMarshalFlags, out limit,
                 out index, out noByRef, out strictMember, out strictArgs,
-                out invoke, out noArgs, out arrayAsValue, out arrayAsLink,
-                out debug, out trace);
+                out invoke, out help, out noArgs, out arrayAsValue,
+                out arrayAsLink, out debug, out trace);
 
             ///////////////////////////////////////////////////////////////////
 
@@ -9408,7 +9464,7 @@ namespace Eagle._Components.Private
                         arguments[newArgumentIndex].String;
                 }
             }
-            else if (invoke || !noArgs)
+            else if (invoke || help || !noArgs)
             {
                 //
                 // FIXME: When no arguments are specified,
@@ -9590,7 +9646,7 @@ namespace Eagle._Components.Private
             //       exactly one result (i.e. it is somewhat redundant; however,
             //       it is designed to match the semantics of [object invoke]).
             //
-            if (invoke)
+            if (invoke && !help)
             {
                 ///////////////////////////////////////////////////////////////
                 //                  METHOD OVERLOAD SELECTION
@@ -9733,13 +9789,26 @@ namespace Eagle._Components.Private
                 //                    RETURN VALUE HANDLING
                 ///////////////////////////////////////////////////////////////
 
-                code = MarshalOps.FixupReturnValue(
-                    interpreter, binder, cultureInfo, returnType,
-                    objectFlags, options, allowOptions ?
-                        GetInvokeOptions(objectOptionType) : null,
-                    objectOptionType, objectName, interpName,
-                    methodInfoList, create, dispose, alias,
-                    aliasReference, toString, ref result);
+                if (help)
+                {
+#if SHELL && INTERACTIVE_COMMANDS && XML
+                    code = HelpOps.GetMemberHelp(
+                        interpreter, methodInfoList, false, ref result);
+#else
+                    result = "not implemented";
+                    code = ReturnCode.Error;
+#endif
+                }
+                else
+                {
+                    code = MarshalOps.FixupReturnValue(
+                        interpreter, binder, cultureInfo, returnType,
+                        objectFlags, options, allowOptions ?
+                            GetInvokeOptions(objectOptionType) : null,
+                        objectOptionType, objectName, interpName,
+                        methodInfoList, create, dispose, alias,
+                        aliasReference, toString, ref result);
+                }
             }
 
             return code;
