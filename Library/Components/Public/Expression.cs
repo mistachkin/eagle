@@ -1351,6 +1351,8 @@ namespace Eagle._Components.Public
                     case Characters.PlusSign:
                     case Characters.MinusSign:
                     case Characters.Infinity: // NOTE: Custom "InfinitySymbol".
+                    case Characters.GreekSmallLetterPi:
+                    case Characters.EulerConstant:
                         {
                             index++;
                             break;

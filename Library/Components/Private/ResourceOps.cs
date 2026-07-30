@@ -129,6 +129,34 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method collects the names of all resources contained in the
+        /// specified resource manager for the specified culture, appending
+        /// them to the specified list.
+        /// </summary>
+        /// <param name="resourceManager">
+        /// The resource manager whose resource names are collected.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture for which resource names are collected.  This parameter
+        /// may be null, in which case the default culture is used.
+        /// </param>
+        /// <param name="createIfNotExists">
+        /// Non-zero to create the resource set for the specified culture if it
+        /// does not already exist.
+        /// </param>
+        /// <param name="list">
+        /// Upon return, receives the collected resource names, which are added
+        /// to the existing list when one is provided.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that was
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> if the resource names were collected
+        /// successfully; otherwise, <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetNames(
             ResourceManager resourceManager, /* in */
             CultureInfo cultureInfo,         /* in */

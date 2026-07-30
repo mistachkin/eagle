@@ -90,15 +90,20 @@ namespace Eagle._Components.Private
         // HACK: These are purposely not read-only.
         //
         /// <summary>
+        /// This is the value of the "real" <see cref="double" /> epsilon as a
+        /// hexadecimal integer.
+        /// </summary>
+        private static long DoubleEpsilonAsInteger = 0x3CB0000000000000;
+        /// <summary>
         /// The default tolerance used when comparing two double-precision values
         /// for approximate equality.
         /// </summary>
-        private static double DoubleEpsilon = 0.00001;
+        private static double DoubleCompareEpsilon = 0.00001;
         /// <summary>
         /// The default tolerance used when comparing two decimal values for
         /// approximate equality.
         /// </summary>
-        private static decimal DecimalEpsilon = 0.00001m;
+        private static decimal DecimalCompareEpsilon = 0.00001m;
         /// <summary>
         /// The value of pi represented as a decimal, used when decimal precision is
         /// requested.
@@ -282,6 +287,22 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         /// <summary>
+        /// This method determines the value of difference between 1.0 and the next
+        /// smallest representable number greater than 1.0 that can be stored in a
+        /// <see cref="double" />.
+        /// </summary>
+        /// <returns>
+        /// The value of difference between 1.0 and the next smallest representable
+        /// number greater than 1.0 that can be stored in a <see cref="double" />.
+        /// </returns>
+        public static double Epsilon()
+        {
+            return BitConverter.Int64BitsToDouble(DoubleEpsilonAsInteger);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        /// <summary>
         /// This method determines whether the base-ten magnitudes of the two
         /// specified values differ by an amount within the optional minimum and
         /// maximum bounds.
@@ -343,7 +364,7 @@ namespace Eagle._Components.Private
             double Y
             )
         {
-            return AboutEquals(X, Y, DoubleEpsilon);
+            return AboutEquals(X, Y, DoubleCompareEpsilon);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -420,7 +441,7 @@ namespace Eagle._Components.Private
             decimal Y
             )
         {
-            return AboutEquals(X, Y, DecimalEpsilon);
+            return AboutEquals(X, Y, DecimalCompareEpsilon);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////

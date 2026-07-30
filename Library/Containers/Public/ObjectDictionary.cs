@@ -470,7 +470,7 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
-#if NET_STANDARD_21
+#if NET_STANDARD_20 && NET_STANDARD_21
         /// <summary>
         /// This method attempts to add the specified value to the dictionary
         /// under the specified key, enforcing the interpreter dictionary pair
@@ -617,7 +617,7 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
-#if NET_STANDARD_21
+#if NET_STANDARD_20 && NET_STANDARD_21
         /// <summary>
         /// This method attempts to add the specified value to the dictionary
         /// under the specified key, failing if the key is already present,
@@ -2180,7 +2180,7 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
-#if NET_STANDARD_21
+#if NET_STANDARD_20 && NET_STANDARD_21
         /// <summary>
         /// This method attempts to add the specified value to the dictionary
         /// under the specified key, failing if the key is already present and

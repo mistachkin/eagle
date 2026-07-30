@@ -11,6 +11,7 @@
 
 using System;
 using Eagle._Attributes;
+using Eagle._Components.Private;
 using Eagle._Components.Public;
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
@@ -53,8 +54,8 @@ namespace Eagle._Functions
         /// <summary>
         /// This method evaluates the <c>eps</c> function.  It validates the
         /// arguments using the base implementation and produces the value of
-        /// <see cref="double.Epsilon" />, the smallest positive
-        /// <see cref="System.Double" /> value greater than zero.
+        /// difference between 1.0 and the next smallest representable number
+        /// greater than 1.0 that can be stored in a <see cref="double" />.
         /// </summary>
         /// <param name="interpreter">
         /// The interpreter context this function is executing in.  This
@@ -100,7 +101,7 @@ namespace Eagle._Functions
 
             try
             {
-                value = double.Epsilon;
+                value = MathOps.Epsilon();
             }
             catch (Exception e)
             {

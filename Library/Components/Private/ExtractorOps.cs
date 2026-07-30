@@ -1032,6 +1032,35 @@ namespace Eagle._Components.Private
         #region Triple Value Extractors
         #region IAnyPair Extractors
         #region Strongly Typed Extractors
+        /// <summary>
+        /// This method attempts to extract the X, Y, and Z values from the
+        /// specified pair as the specified types.  Since a pair has no Z value,
+        /// this extraction always fails.
+        /// </summary>
+        /// <typeparam name="T1">
+        /// The type that the X value must match.
+        /// </typeparam>
+        /// <typeparam name="T2">
+        /// The type that the Y value must match.
+        /// </typeparam>
+        /// <typeparam name="T3">
+        /// The type that the Z value must match.
+        /// </typeparam>
+        /// <param name="anyPair">
+        /// The pair from which to extract the values.
+        /// </param>
+        /// <param name="x">
+        /// This always contains the default value for the type.
+        /// </param>
+        /// <param name="y">
+        /// This always contains the default value for the type.
+        /// </param>
+        /// <param name="z">
+        /// This always contains the default value for the type.
+        /// </param>
+        /// <returns>
+        /// This method always returns zero.
+        /// </returns>
         public static bool TryExtractXYZ<T1, T2, T3>(
             IAnyPair anyPair,
             out T1 x,
@@ -1049,6 +1078,26 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Weakly Typed Extractors
+        /// <summary>
+        /// This method attempts to extract the X, Y, and Z values from the
+        /// specified pair as raw objects.  Since a pair has no Z value, this
+        /// extraction always fails.
+        /// </summary>
+        /// <param name="anyPair">
+        /// The pair from which to extract the values.
+        /// </param>
+        /// <param name="x">
+        /// This always contains null.
+        /// </param>
+        /// <param name="y">
+        /// This always contains null.
+        /// </param>
+        /// <param name="z">
+        /// This always contains null.
+        /// </param>
+        /// <returns>
+        /// This method always returns zero.
+        /// </returns>
         public static bool TryExtractXYZ(
             IAnyPair anyPair,
             out object x,
@@ -1068,6 +1117,39 @@ namespace Eagle._Components.Private
 
         #region IAnyTriplet Extractors
         #region Strongly Typed Extractors
+        /// <summary>
+        /// This method attempts to extract the X, Y, and Z values from the
+        /// specified triplet as the specified types.
+        /// </summary>
+        /// <typeparam name="T1">
+        /// The type that the X value must match.
+        /// </typeparam>
+        /// <typeparam name="T2">
+        /// The type that the Y value must match.
+        /// </typeparam>
+        /// <typeparam name="T3">
+        /// The type that the Z value must match.
+        /// </typeparam>
+        /// <param name="anyTriplet">
+        /// The triplet from which to extract the values.  If this parameter is
+        /// null, the extraction fails.
+        /// </param>
+        /// <param name="x">
+        /// Upon success, this contains the extracted X value; otherwise, it
+        /// contains the default value for the type.
+        /// </param>
+        /// <param name="y">
+        /// Upon success, this contains the extracted Y value; otherwise, it
+        /// contains the default value for the type.
+        /// </param>
+        /// <param name="z">
+        /// Upon success, this contains the extracted Z value; otherwise, it
+        /// contains the default value for the type.
+        /// </param>
+        /// <returns>
+        /// Non-zero if all values were extracted and matched the specified
+        /// types; otherwise, zero.
+        /// </returns>
         public static bool TryExtractXYZ<T1, T2, T3>(
             IAnyTriplet anyTriplet,
             out T1 x,
@@ -1123,6 +1205,29 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Weakly Typed Extractors
+        /// <summary>
+        /// This method attempts to extract the X, Y, and Z values from the
+        /// specified triplet as raw objects.
+        /// </summary>
+        /// <param name="anyTriplet">
+        /// The triplet from which to extract the values.  If this parameter is
+        /// null, the extraction fails.
+        /// </param>
+        /// <param name="x">
+        /// Upon success, this contains the extracted X value; otherwise, it
+        /// contains null.
+        /// </param>
+        /// <param name="y">
+        /// Upon success, this contains the extracted Y value; otherwise, it
+        /// contains null.
+        /// </param>
+        /// <param name="z">
+        /// Upon success, this contains the extracted Z value; otherwise, it
+        /// contains null.
+        /// </param>
+        /// <returns>
+        /// Non-zero if all values were extracted; otherwise, zero.
+        /// </returns>
         public static bool TryExtractXYZ(
             IAnyTriplet anyTriplet,
             out object x,

@@ -491,6 +491,20 @@ namespace Eagle._Components.Private
             /// </summary>
             public static readonly string Infinity =
                 Characters.Infinity.ToString();
+
+            /// <summary>
+            /// The string recognized as Pi (single or double) by the Eagle
+            /// expression parser.
+            /// </summary>
+            public static readonly string Pi =
+                Characters.GreekSmallLetterPi.ToString();
+
+            /// <summary>
+            /// The string recognized as Euler's number (single or double) by
+            /// the Eagle expression parser.
+            /// </summary>
+            public static readonly string Euler =
+                Characters.EulerConstant.ToString();
         }
         #endregion
 

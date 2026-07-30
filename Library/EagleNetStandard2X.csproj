@@ -80,8 +80,8 @@
   -->
 
   <PropertyGroup>
-    <TargetFramework Condition="'$(TargetFramework)' == '' And '$(EagleNetStandard21)' == 'false'">netstandard2.0</TargetFramework>
-    <TargetFramework Condition="'$(TargetFramework)' == '' And '$(EagleNetStandard21)' != 'false'">netstandard2.1</TargetFramework>
+    <TargetFrameworks Condition="'$(TargetFrameworks)' == '' And '$(EagleNetStandard21)' == 'false'">netstandard2.0</TargetFrameworks>
+    <TargetFrameworks Condition="'$(TargetFrameworks)' == '' And '$(EagleNetStandard21)' != 'false'">netstandard2.1</TargetFrameworks>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <Deterministic>False</Deterministic>
     <EnableDefaultItems>false</EnableDefaultItems>
@@ -107,11 +107,32 @@
     <EagleAppDomains Condition="'$(EagleAppDomains)' == ''">false</EagleAppDomains>
     <EagleCasPolicy Condition="'$(EagleCasPolicy)' == ''">false</EagleCasPolicy>
     <EagleConfiguration Condition="'$(EagleConfiguration)' == ''">false</EagleConfiguration>
-    <EagleDrawing Condition="'$(EagleDrawing)' == ''">false</EagleDrawing>
     <EagleIsolatedInterpreters Condition="'$(EagleIsolatedInterpreters)' == ''">false</EagleIsolatedInterpreters>
     <EagleIsolatedPlugins Condition="'$(EagleIsolatedPlugins)' == ''">false</EagleIsolatedPlugins>
     <EagleRemoting Condition="'$(EagleRemoting)' == ''">false</EagleRemoting>
-    <EagleWinForms Condition="'$(EagleWinForms)' == ''">false</EagleWinForms>
+  </PropertyGroup>
+
+  <!--
+  ******************************************************************************
+  **       .NET Core 3.0 Specific Eagle Property Overrides for WinForms       **
+  ******************************************************************************
+  -->
+
+  <PropertyGroup Condition="'$(EagleDrawing)' != 'false' And
+                            '$(EagleWinForms)' != 'false'">
+    <!--
+        NOTE: Windows Forms is not available on .NET Standard.  When WinForms
+              support is requested via the "EagleWinForms" property, the core
+              is MULTI-TARGETED to "netstandard2.1;netcoreapp3.0": the target
+              "netstandard2.1" is what the non-WinForms plugins reference,
+              while the target "netcoreapp3.0" additionally carries Windows
+              Forms for the HotKey / Featherlight plugins.
+    -->
+    <EagleNetStandard21>true</EagleNetStandard21>
+    <TargetFrameworks>netstandard2.1;netcoreapp3.0</TargetFrameworks>
+    <UseWindowsForms Condition="'$(TargetFramework)' == 'netcoreapp3.0'">true</UseWindowsForms>
+    <EnableWindowsTargeting Condition="'$(TargetFramework)' == 'netcoreapp3.0'">true</EnableWindowsTargeting>
+    <EagleConfigurationSuffix>NetStandard21</EagleConfigurationSuffix>
   </PropertyGroup>
 
   <!--
@@ -413,10 +434,12 @@
     <Reference Include="System.Web" />
   </ItemGroup>
   <ItemGroup Condition="'$(EagleDrawing)' != 'false' And
+                        '$(TargetFramework)' == 'netcoreapp3.0' And
                         '$(EagleNetStandard20)' == 'false'">
     <Reference Include="System.Drawing" />
   </ItemGroup>
   <ItemGroup Condition="'$(EagleWinForms)' != 'false' And
+                        '$(TargetFramework)' == 'netcoreapp3.0' And
                         '$(EagleNetStandard20)' == 'false'">
     <Reference Include="System.Windows.Forms" />
   </ItemGroup>
@@ -1351,7 +1374,7 @@
   <ItemGroup Condition="'$(EagleCacheStatistics)' != 'false'">
     <Compile Include="Interfaces\Private\CacheCounts.cs" />
   </ItemGroup>
-  <ItemGroup Condition="'$(EagleWinForms)' != 'false'">
+  <ItemGroup Condition="'$(EagleWinForms)' != 'false' And '$(TargetFramework)' == 'netcoreapp3.0'">
     <Compile Include="Components\Private\FormOps.cs" />
     <Compile Include="Components\Private\KeyOps.cs" />
     <Compile Include="Components\Private\StatusFormOps.cs" />
@@ -1618,7 +1641,7 @@
   <PropertyGroup Condition="'$(EagleWeb)' != 'false'">
     <DefineConstants>$(DefineConstants);WEB</DefineConstants>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(EagleWinForms)' != 'false'">
+  <PropertyGroup Condition="'$(EagleWinForms)' != 'false' And '$(TargetFramework)' == 'netcoreapp3.0'">
     <DefineConstants>$(DefineConstants);WINFORMS</DefineConstants>
   </PropertyGroup>
   <PropertyGroup Condition="'$(EagleXml)' != 'false'">

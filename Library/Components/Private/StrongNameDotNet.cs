@@ -372,6 +372,19 @@ internal static class StrongNameDotNet
 
     ///////////////////////////////////////////////////////////////////////////
 
+    /// <summary>
+    /// This method verifies the strong name signature embedded within the
+    /// assembly image contained in the specified stream, by recomputing the
+    /// strong name hash of the image and checking it against the signature
+    /// using the RSA public key stored in the assembly metadata.
+    /// </summary>
+    /// <param name="stream">
+    /// The stream containing the assembly image whose strong name signature
+    /// should be verified.
+    /// </param>
+    /// <returns>
+    /// Non-zero if the strong name signature is valid; otherwise, zero.
+    /// </returns>
     private static bool VerifyStrongNameSignature(
         Stream stream /* in */
         ) /* throw */
@@ -447,6 +460,35 @@ internal static class StrongNameDotNet
     ///////////////////////////////////////////////////////////////////////////
 
     #region Public Methods
+    /// <summary>
+    /// This method verifies the strong name signature of the specified
+    /// assembly file using the managed .NET Core reflection metadata APIs.
+    /// </summary>
+    /// <param name="fileName">
+    /// The fully qualified path to the assembly file whose strong name
+    /// signature should be verified.
+    /// </param>
+    /// <param name="force">
+    /// Non-zero to force the signature verification even when it would
+    /// otherwise be skipped (e.g. due to a registry verification skip
+    /// entry).
+    /// </param>
+    /// <param name="returnValue">
+    /// Upon return, this is set to non-zero if the strong name signature
+    /// was determined to be valid; otherwise, it is set to zero.
+    /// </param>
+    /// <param name="verified">
+    /// Upon return, this is set to non-zero if the signature verification
+    /// was actually performed; otherwise, it is set to zero.
+    /// </param>
+    /// <param name="error">
+    /// Upon failure, this is set to an error message or exception describing
+    /// why the verification could not be performed.
+    /// </param>
+    /// <returns>
+    /// <see cref="ReturnCode.Ok" /> on success;
+    /// <see cref="ReturnCode.Error" /> on failure.
+    /// </returns>
     public static ReturnCode IsStrongNameVerifiedDotNet(
         string fileName,      /* in */
         bool force,           /* in */

@@ -52,6 +52,17 @@ namespace Eagle._Messages
     {
         #region Protected Constructors
 #if SERIALIZATION
+        /// <summary>
+        /// Constructs an instance of this class from previously serialized
+        /// data.  This constructor is used during deserialization.
+        /// </summary>
+        /// <param name="info">
+        /// The object that holds the serialized data for this collection.
+        /// </param>
+        /// <param name="context">
+        /// The streaming context, describing the source and destination of the
+        /// serialized data.
+        /// </param>
         private SourceLineNumberCollection(
             SerializationInfo info,
             StreamingContext context
@@ -75,6 +86,10 @@ namespace Eagle._Messages
     [ObjectId("1a58048e-be6a-43b0-8b7d-4aaf1dcb5f4c")]
     public sealed class ScriptError : MessageEventArgs
     {
+        /// <summary>
+        /// The resource manager used to look up the localized strings for
+        /// script error messages.
+        /// </summary>
         private static ResourceManager resourceManager = new ResourceManager(
             "Eagle._Messages.Messages", GlobalState.GetAssembly());
 
@@ -130,6 +145,10 @@ namespace Eagle._Messages
     [ObjectId("c4999ea9-098f-44fb-8db4-92fa65e9dc8a")]
     public sealed class ScriptErrors
     {
+        /// <summary>
+        /// Prevents instantiation of this class, which exposes only static
+        /// factory methods.
+        /// </summary>
         private ScriptErrors()
         {
             // do nothing.
@@ -171,6 +190,10 @@ namespace Eagle._Messages
     [ObjectId("a045811a-7008-45e4-b0c7-357ef909529e")]
     public sealed class ScriptWarning : MessageEventArgs
     {
+        /// <summary>
+        /// The resource manager used to look up the localized strings for
+        /// script warning messages.
+        /// </summary>
         private static ResourceManager resourceManager = new ResourceManager(
             "Eagle._Messages.Messages", GlobalState.GetAssembly());
 
@@ -226,6 +249,10 @@ namespace Eagle._Messages
     [ObjectId("b73a735c-9f1a-4a87-95be-b45115b45244")]
     public sealed class ScriptWarnings
     {
+        /// <summary>
+        /// Prevents instantiation of this class, which exposes only static
+        /// factory methods.
+        /// </summary>
         private ScriptWarnings()
         {
             // do nothing.
@@ -268,6 +295,10 @@ namespace Eagle._Messages
     [ObjectId("aa2f305e-fdfb-43bb-af74-0c45417c99b2")]
     public sealed class ScriptInformational : MessageEventArgs
     {
+        /// <summary>
+        /// The resource manager used to look up the localized strings for
+        /// script informational messages.
+        /// </summary>
         private static ResourceManager resourceManager = new ResourceManager(
             "Eagle._Messages.Messages", GlobalState.GetAssembly());
 
@@ -323,6 +354,10 @@ namespace Eagle._Messages
     [ObjectId("82bca8ce-c952-49d6-83c3-9cf5fa645b83")]
     public sealed class ScriptInformationals
     {
+        /// <summary>
+        /// Prevents instantiation of this class, which exposes only static
+        /// factory methods.
+        /// </summary>
         private ScriptInformationals()
         {
             // do nothing.

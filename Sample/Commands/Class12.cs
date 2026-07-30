@@ -327,6 +327,13 @@ namespace Sample
         private sealed class Example3 : _SubCommands.Default
         {
             #region Public Constructors
+            /// <summary>
+            /// Constructs a new instance of this sample sub-command, configuring its
+            /// command flags and the set of sub-commands it directly supports.
+            /// </summary>
+            /// <param name="subCommandData">
+            /// The data used to create and configure this sub-command.
+            /// </param>
             public Example3(
                 ISubCommandData subCommandData
                 )
@@ -353,6 +360,13 @@ namespace Sample
             ///////////////////////////////////////////////////////////////////
 
             #region Private Static Methods
+            /// <summary>
+            /// Creates the dictionary of sub-commands directly supported by this
+            /// sub-command's <see cref="Execute" /> method.
+            /// </summary>
+            /// <returns>
+            /// The populated sub-command dictionary.
+            /// </returns>
             private static EnsembleDictionary CreateSubCommands()
             {
                 EnsembleDictionary subCommands = new EnsembleDictionary();
@@ -366,6 +380,29 @@ namespace Sample
             ///////////////////////////////////////////////////////////////////
 
             #region IExecute Members
+            /// <summary>
+            /// Executes this sample sub-command, dispatching on the sub-command name
+            /// in the supplied arguments.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context this sub-command is executing in.
+            /// </param>
+            /// <param name="clientData">
+            /// The extra, command-specific data supplied to the sub-command, if
+            /// any.
+            /// </param>
+            /// <param name="arguments">
+            /// The list of arguments for this invocation.
+            /// </param>
+            /// <param name="result">
+            /// Upon success, this may contain the result value produced by the
+            /// sub-command.  Upon failure, this may contain an appropriate error
+            /// message.
+            /// </param>
+            /// <returns>
+            /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+            /// <see cref="ReturnCode.Error" />.
+            /// </returns>
             public override ReturnCode Execute(
                 Interpreter interpreter,
                 IClientData clientData,

@@ -1630,7 +1630,7 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-#if NET_STANDARD_21
+#if NET_STANDARD_20 && NET_STANDARD_21
         /// <summary>
         /// This method attempts to add the specified key and value to this
         /// dictionary, recording an access to the key when it is added.

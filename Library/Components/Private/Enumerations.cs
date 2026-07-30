@@ -3508,6 +3508,9 @@ namespace Eagle._Components.Private
         /// </summary>
         MaybeNoIsolatedNotify = NoIsolatedNotify | Reserved1,
 #else
+        /// <summary>
+        /// Optionally suppress isolated plugin notifications, depending on the build.
+        /// </summary>
         MaybeNoIsolatedNotify = None | Reserved1,
 #endif
 

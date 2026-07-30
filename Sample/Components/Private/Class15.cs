@@ -20,6 +20,10 @@ namespace Sample
     //
     // FIXME: Always change this GUID.
     //
+    /// <summary>
+    /// A sample class that resolves a small set of dynamic commands by name,
+    /// demonstrating how a plugin can handle otherwise-unknown commands.
+    /// </summary>
     [ObjectId("5b039357-f5d6-483e-8cfb-166a609ff6f3")]
     internal sealed class Class15
 #if ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
@@ -30,6 +34,10 @@ namespace Sample
         //
         // FIXME: Always change this GUID.
         //
+        /// <summary>
+        /// A simple dynamic <see cref="IExecute" /> command that returns its own
+        /// name together with the arguments it was given.
+        /// </summary>
         [ObjectId("65305139-bbc6-4974-b04e-d5c9fabb685b")]
         private sealed class Class15Execute :
 #if ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
@@ -128,6 +136,10 @@ namespace Sample
         //       query for an embedded resource string containing the sample
         //       package script.
         //
+        /// <summary>
+        /// The configured plugin instance, used to query for the embedded sample
+        /// package script.  It is not owned by this instance.
+        /// </summary>
         private IPlugin plugin;
 
         ///////////////////////////////////////////////////////////////////////
@@ -137,6 +149,10 @@ namespace Sample
         //       the constructor.  This will be created (only) when the public
         //       constructor receives a valid name.
         //
+        /// <summary>
+        /// The cached dynamic command, created when the constructor is given a
+        /// valid name.
+        /// </summary>
         private Class15Execute class15Execute;
         #endregion
 
@@ -273,7 +289,14 @@ namespace Sample
         ///////////////////////////////////////////////////////////////////////
 
         #region IDisposable "Pattern" Members
+        /// <summary>
+        /// Non-zero if this instance has been disposed.
+        /// </summary>
         private bool disposed;
+        /// <summary>
+        /// Verifies, from within public members, that this instance has not been
+        /// disposed.
+        /// </summary>
         private void CheckDisposed() /* throw */
         {
 #if THROW_ON_DISPOSED
@@ -284,6 +307,13 @@ namespace Sample
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Releases the resources used by this instance.
+        /// </summary>
+        /// <param name="disposing">
+        /// Non-zero if this instance is being explicitly disposed via the
+        /// <see cref="Dispose()" /> method; zero if it is being finalized.
+        /// </param>
         private /* protected virtual */ void Dispose(
             bool disposing
             )
@@ -312,6 +342,9 @@ namespace Sample
         ///////////////////////////////////////////////////////////////////////
 
         #region IDisposable Members
+        /// <summary>
+        /// Releases all resources used by this instance.
+        /// </summary>
         public void Dispose()
         {
             Dispose(true);
@@ -322,6 +355,10 @@ namespace Sample
         ///////////////////////////////////////////////////////////////////////
 
         #region Destructor
+        /// <summary>
+        /// Finalizes this object, releasing any resources that were not released
+        /// by an explicit call to <see cref="Dispose()" />.
+        /// </summary>
         ~Class15()
         {
             Dispose(false);

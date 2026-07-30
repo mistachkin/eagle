@@ -1109,7 +1109,7 @@ namespace Eagle._Commands
                                                     interpreter.SubstitutionFlags, ref notReady,
                                                     ref error))
                                             {
-                                                result = true;
+                                                result = interpreter.BooleanToResult(true);
                                             }
                                             else if (notReady)
                                             {
@@ -1123,7 +1123,7 @@ namespace Eagle._Commands
                                             }
                                             else
                                             {
-                                                result = false;
+                                                result = interpreter.BooleanToResult(false);
                                             }
                                         }
                                         else
@@ -1321,7 +1321,7 @@ namespace Eagle._Commands
                                                                 null, ref result);
 
                                                             if (code == ReturnCode.Ok)
-                                                                result = (@default != null);
+                                                                result = interpreter.BooleanToResult(@default != null);
                                                         }
                                                         else
                                                         {

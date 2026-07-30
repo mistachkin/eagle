@@ -635,6 +635,8 @@ namespace Eagle._Components.Public
                         Vars.Expression.Infinity] = float.NegativeInfinity;
 
                     namedSingles.Add(TclVars.Expression.NaN, float.NaN);
+                    namedSingles.Add(Vars.Expression.Pi, (float)Math.PI);
+                    namedSingles.Add(Vars.Expression.Euler, (float)Math.E);
                 }
 
                 ///////////////////////////////////////////////////////////////
@@ -679,6 +681,8 @@ namespace Eagle._Components.Public
                         Vars.Expression.Infinity] = double.NegativeInfinity;
 
                     namedDoubles.Add(TclVars.Expression.NaN, double.NaN);
+                    namedDoubles.Add(Vars.Expression.Pi, Math.PI);
+                    namedDoubles.Add(Vars.Expression.Euler, Math.E);
                 }
 
                 ///////////////////////////////////////////////////////////////

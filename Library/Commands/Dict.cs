@@ -237,13 +237,17 @@ namespace Eagle._Commands
                                     builder.Append(arguments[argumentIndex]);
                                 }
 
-                                code = interpreter.FireTraces(
-                                    BreakpointType.BeforeVariableSet, variableFlags,
-                                    null, variableName, null, dictionary, null, null,
-                                    variable, ref result);
+                                if (!FlagOps.HasFlags(
+                                        variable.Flags, VariableFlags.NonTrace, false))
+                                {
+                                    code = interpreter.FireTraces(
+                                        BreakpointType.BeforeVariableSet, variableFlags,
+                                        null, variableName, null, dictionary, null, null,
+                                        variable, ref result);
 
-                                if (code != ReturnCode.Ok)
-                                    goto done;
+                                    if (code != ReturnCode.Ok)
+                                        goto done;
+                                }
 
                                 variable.Value = dictionary;
 
@@ -301,8 +305,9 @@ namespace Eagle._Commands
                                 goto done;
                             }
 
-                            result = dictionary.CanTraverse(interpreter,
-                                arguments.GetRange(3, argumentCount - 3), true);
+                            result = interpreter.BooleanToResult(
+                                dictionary.CanTraverse(interpreter, arguments.GetRange(
+                                3, argumentCount - 3), true));
                         }
                         else
                         {
@@ -748,13 +753,17 @@ namespace Eagle._Commands
                                     goto done;
                                 }
 
-                                code = interpreter.FireTraces(
-                                    BreakpointType.BeforeVariableSet, variableFlags,
-                                    null, variableName, null, dictionary, null,
-                                    null, variable, ref result);
+                                if (!FlagOps.HasFlags(
+                                        variable.Flags, VariableFlags.NonTrace, false))
+                                {
+                                    code = interpreter.FireTraces(
+                                        BreakpointType.BeforeVariableSet, variableFlags,
+                                        null, variableName, null, dictionary, null,
+                                        null, variable, ref result);
 
-                                if (code != ReturnCode.Ok)
-                                    goto done;
+                                    if (code != ReturnCode.Ok)
+                                        goto done;
+                                }
 
                                 variable.Value = dictionary;
 
@@ -883,13 +892,17 @@ namespace Eagle._Commands
                                     goto done;
                                 }
 
-                                code = interpreter.FireTraces(
-                                    BreakpointType.BeforeVariableSet, variableFlags,
-                                    null, variableName, null, dictionary, null,
-                                    null, variable, ref result);
+                                if (!FlagOps.HasFlags(
+                                        variable.Flags, VariableFlags.NonTrace, false))
+                                {
+                                    code = interpreter.FireTraces(
+                                        BreakpointType.BeforeVariableSet, variableFlags,
+                                        null, variableName, null, dictionary, null,
+                                        null, variable, ref result);
 
-                                if (code != ReturnCode.Ok)
-                                    goto done;
+                                    if (code != ReturnCode.Ok)
+                                        goto done;
+                                }
 
                                 variable.Value = dictionary;
 
@@ -1196,13 +1209,17 @@ namespace Eagle._Commands
                                     goto done;
                                 }
 
-                                code = interpreter.FireTraces(
-                                    BreakpointType.BeforeVariableSet, variableFlags,
-                                    null, variableName, null, dictionary, null,
-                                    null, variable, ref result);
+                                if (!FlagOps.HasFlags(
+                                        variable.Flags, VariableFlags.NonTrace, false))
+                                {
+                                    code = interpreter.FireTraces(
+                                        BreakpointType.BeforeVariableSet, variableFlags,
+                                        null, variableName, null, dictionary, null,
+                                        null, variable, ref result);
 
-                                if (code != ReturnCode.Ok)
-                                    goto done;
+                                    if (code != ReturnCode.Ok)
+                                        goto done;
+                                }
 
                                 variable.Value = dictionary;
 
@@ -1310,13 +1327,17 @@ namespace Eagle._Commands
                                 //
                                 if (changeCount > 0)
                                 {
-                                    code = interpreter.FireTraces(
-                                        BreakpointType.BeforeVariableSet, variableFlags,
-                                        null, variableName, null, dictionary, null,
-                                        null, variable, ref result);
+                                    if (!FlagOps.HasFlags(
+                                            variable.Flags, VariableFlags.NonTrace, false))
+                                    {
+                                        code = interpreter.FireTraces(
+                                            BreakpointType.BeforeVariableSet, variableFlags,
+                                            null, variableName, null, dictionary, null,
+                                            null, variable, ref result);
 
-                                    if (code != ReturnCode.Ok)
-                                        goto done;
+                                        if (code != ReturnCode.Ok)
+                                            goto done;
+                                    }
 
                                     variable.Value = dictionary;
 
@@ -1438,13 +1459,17 @@ namespace Eagle._Commands
                                         }
                                     }
 
-                                    code = interpreter.FireTraces(
-                                        BreakpointType.BeforeVariableSet, variableFlags,
-                                        null, variableName, null, dictionary, null,
-                                        null, variable, ref result);
+                                    if (!FlagOps.HasFlags(
+                                            variable.Flags, VariableFlags.NonTrace, false))
+                                    {
+                                        code = interpreter.FireTraces(
+                                            BreakpointType.BeforeVariableSet, variableFlags,
+                                            null, variableName, null, dictionary, null,
+                                            null, variable, ref result);
 
-                                    if (code != ReturnCode.Ok)
-                                        goto done;
+                                        if (code != ReturnCode.Ok)
+                                            goto done;
+                                    }
 
                                     variable.Value = dictionary;
 
@@ -1636,14 +1661,18 @@ namespace Eagle._Commands
                                         }
                                     }
 
-                                    code = interpreter.FireTraces(
-                                        BreakpointType.BeforeVariableSet,
-                                        variableFlags, null, variableName,
-                                        null, dictionary, null, null,
-                                        variable, ref result);
+                                    if (!FlagOps.HasFlags(
+                                            variable.Flags, VariableFlags.NonTrace, false))
+                                    {
+                                        code = interpreter.FireTraces(
+                                            BreakpointType.BeforeVariableSet,
+                                            variableFlags, null, variableName,
+                                            null, dictionary, null, null,
+                                            variable, ref result);
 
-                                    if (code != ReturnCode.Ok)
-                                        goto done;
+                                        if (code != ReturnCode.Ok)
+                                            goto done;
+                                    }
 
                                     variable.Value = dictionary;
 

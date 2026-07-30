@@ -1375,7 +1375,7 @@ namespace Eagle._Components.Private
                 // NOTE: For a type, the element name is simply its (full)
                 //       documentation comment type name.
                 //
-                AppendMemberTypeName(builder, type);
+                AppendMemberTypeName(builder, type, true);
             }
             else
             {
@@ -1383,7 +1383,7 @@ namespace Eagle._Components.Private
                 // NOTE: Otherwise, start with the declaring type, followed
                 //       by the member name itself.
                 //
-                AppendMemberTypeName(builder, memberInfo.DeclaringType);
+                AppendMemberTypeName(builder, memberInfo.DeclaringType, true);
                 builder.Append(Characters.Period);
 
                 //
@@ -1444,7 +1444,23 @@ namespace Eagle._Components.Private
                 //       parameters, if any.
                 //
                 if (methodBase != null)
-                    AppendMemberParameters(builder, methodBase.GetParameters());
+                    AppendMemberParameters(builder, methodBase.GetParameters(),
+                        (methodBase.CallingConvention & CallingConventions.VarArgs) ==
+                            CallingConventions.VarArgs);
+
+                //
+                // NOTE: An indexer (i.e. a parameterized property) encodes the
+                //       type of each of its index parameters, just as a method
+                //       does; a non-indexed property has none, so nothing is
+                //       appended for it.
+                //
+                PropertyInfo propertyInfo = memberInfo as PropertyInfo;
+
+                if (propertyInfo != null)
+                {
+                    AppendMemberParameters(
+                        builder, propertyInfo.GetIndexParameters(), false);
+                }
 
                 //
                 // NOTE: A conversion operator additionally encodes its return
@@ -1453,7 +1469,7 @@ namespace Eagle._Components.Private
                 if ((methodInfo != null) && IsConversionOperator(methodInfo))
                 {
                     builder.Append(Characters.Tilde);
-                    AppendMemberTypeName(builder, methodInfo.ReturnType);
+                    AppendMemberTypeName(builder, methodInfo.ReturnType, false);
                 }
             }
 
@@ -1474,9 +1490,15 @@ namespace Eagle._Components.Private
         /// <param name="parameters">
         /// The parameters whose types are to be appended.
         /// </param>
+        /// <param name="varArgs">
+        /// Non-zero if the member uses the variable-argument (__arglist)
+        /// calling convention, in which case a trailing comma is appended to
+        /// the parameter list to match the compiler-emitted identifier.
+        /// </param>
         private static void AppendMemberParameters(
-            StringBuilder builder,     /* in, out */
-            ParameterInfo[] parameters /* in */
+            StringBuilder builder,      /* in, out */
+            ParameterInfo[] parameters, /* in */
+            bool varArgs                /* in */
             )
         {
             if ((builder == null) || (parameters == null))
@@ -1499,8 +1521,16 @@ namespace Eagle._Components.Private
                 if (parameter == null)
                     continue;
 
-                AppendMemberTypeName(builder, parameter.ParameterType);
+                AppendMemberTypeName(builder, parameter.ParameterType, false);
             }
+
+            //
+            // NOTE: A variable-argument (__arglist) method encodes a trailing
+            //       comma after its fixed parameters, e.g. "M(System.Int32,)",
+            //       matching the compiler-emitted documentation identifier.
+            //
+            if (varArgs)
+                builder.Append(Characters.Comma);
 
             builder.Append(Characters.CloseParenthesis);
         }
@@ -1519,9 +1549,17 @@ namespace Eagle._Components.Private
         /// <param name="type">
         /// The type whose documentation comment name is to be appended.
         /// </param>
+        /// <param name="nominal">
+        /// Non-zero when the type occupies a nominal position (the member's
+        /// declaring type, or a type being documented), where a generic type is
+        /// encoded using the arity form (e.g. "Foo`2"); zero when it occupies a
+        /// signature position (a parameter or return type), where a generic type
+        /// is encoded using the braced type-argument form (e.g. "Foo{`0,`1}").
+        /// </param>
         private static void AppendMemberTypeName(
             StringBuilder builder, /* in, out */
-            Type type              /* in */
+            Type type,             /* in */
+            bool nominal           /* in */
             )
         {
             if ((builder == null) || (type == null))
@@ -1533,7 +1571,7 @@ namespace Eagle._Components.Private
                 // NOTE: A by-reference type is its element type, followed
                 //       by an "at" sign.
                 //
-                AppendMemberTypeName(builder, type.GetElementType());
+                AppendMemberTypeName(builder, type.GetElementType(), nominal);
                 builder.Append(Characters.AtSign);
             }
             else if (type.IsPointer)
@@ -1542,7 +1580,7 @@ namespace Eagle._Components.Private
                 // NOTE: A pointer type is its element type, followed by an
                 //       asterisk.
                 //
-                AppendMemberTypeName(builder, type.GetElementType());
+                AppendMemberTypeName(builder, type.GetElementType(), nominal);
                 builder.Append(Characters.Asterisk);
             }
             else if (type.IsArray)
@@ -1551,7 +1589,7 @@ namespace Eagle._Components.Private
                 // NOTE: An array type is its element type, followed by the
                 //       (possibly multi-dimensional) rank specifier.
                 //
-                AppendMemberTypeName(builder, type.GetElementType());
+                AppendMemberTypeName(builder, type.GetElementType(), nominal);
 
                 int rank = type.GetArrayRank();
 
@@ -1590,7 +1628,7 @@ namespace Eagle._Components.Private
                 // NOTE: Otherwise, this is an ordinary (possibly nested
                 //       and/or generic) nominal type.
                 //
-                AppendNominalTypeName(builder, type);
+                AppendNominalTypeName(builder, type, nominal);
             }
         }
 
@@ -1608,9 +1646,21 @@ namespace Eagle._Components.Private
         /// <param name="type">
         /// The nominal type whose documentation comment name is to be appended.
         /// </param>
+        /// <param name="nominal">
+        /// Non-zero when the type occupies a nominal position (the member's
+        /// declaring type, or a type being documented), where its own generic
+        /// parameters are encoded using the arity form (e.g. "Foo`2"); zero when
+        /// it occupies a signature position (a parameter or return type), where
+        /// they are encoded using the braced type-argument form (e.g.
+        /// "Foo{`0,`1}").  A given generic type can appear in both positions --
+        /// e.g. a conversion operator declared in "Foo`2" that returns
+        /// "Foo{`0,`1}" -- and reflection reports it as an unbound definition in
+        /// each, so the caller's position, not the type, selects the form.
+        /// </param>
         private static void AppendNominalTypeName(
             StringBuilder builder, /* in, out */
-            Type type              /* in */
+            Type type,             /* in */
+            bool nominal           /* in */
             )
         {
             if (builder == null)
@@ -1693,21 +1743,49 @@ namespace Eagle._Components.Private
 
                 int ownedCount = totalCount - consumedCount;
 
-                if ((arguments != null) && (ownedCount > 0))
+                if (ownedCount > 0)
                 {
-                    builder.Append(Characters.OpenBrace);
-
-                    for (int index = 0; index < ownedCount; index++)
+                    if (nominal)
                     {
-                        if (index > 0)
-                            builder.Append(Characters.Comma);
+                        //
+                        // NOTE: In a NOMINAL position (the declaring type of a
+                        //       member, or a type being documented) a generic
+                        //       type uses the arity form -- a grave accent
+                        //       followed by the count of type parameters owned
+                        //       at this nesting level, e.g. "Foo`2" -- NOT a
+                        //       braced argument list.
+                        //
+                        builder.Append(Characters.GraveAccent);
+                        builder.Append(ownedCount);
 
-                        AppendMemberTypeName(
-                            builder, arguments[consumedCount + index]);
+                        consumedCount += ownedCount;
                     }
+                    else if (arguments != null)
+                    {
+                        //
+                        // NOTE: In a SIGNATURE position (a parameter or return
+                        //       type) a generic type uses the braced argument
+                        //       list, e.g. "Foo{System.Int32,`0}" -- whether it
+                        //       is closed (e.g. IDictionary<int, TValue>) or the
+                        //       enclosing type referenced by its own parameters
+                        //       (e.g. a "Foo`2" operator returning "Foo{`0,`1}").
+                        //       The arguments are themselves signature positions.
+                        //
+                        builder.Append(Characters.OpenBrace);
 
-                    builder.Append(Characters.CloseBrace);
-                    consumedCount += ownedCount;
+                        for (int index = 0; index < ownedCount; index++)
+                        {
+                            if (index > 0)
+                                builder.Append(Characters.Comma);
+
+                            AppendMemberTypeName(
+                                builder, arguments[consumedCount + index], false);
+                        }
+
+                        builder.Append(Characters.CloseBrace);
+
+                        consumedCount += ownedCount;
+                    }
                 }
             }
         }

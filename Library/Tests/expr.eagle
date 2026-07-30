@@ -977,59 +977,95 @@ System.Uri System.Version}}
 
 ###############################################################################
 
-runTest {test expr-1.40.1 {named System.Single values} -body {
+runTest {test expr-1.40.1 {named System.Single values} -setup {
+  if {[haveConstraint ieee754r2008]} then {
+    saveAndResetPrecision 14
+  }
+} -body {
   set x [object invoke -flags +NonPublic Value namedSingles]
   set y [object create StringList $x]
   lsort [getStringFromObjectHandle $y]
 } -cleanup {
+  if {[haveConstraint ieee754r2008]} then {
+    restorePrecision
+  }
+
   unset -nocomplain x y
 } -constraints {eagle command.object} \
 -constraintExpression {![haveInfinitySymbol]} -result "\{\[+Inf, Infinity\]\}\
 \{\[+Infinity, Infinity\]\} \{\[+\u221E, Infinity\]\} \{\[-Inf, -Infinity\]\}\
 \{\[-Infinity, -Infinity\]\} \{\[-\u221E, -Infinity\]\} \{\[Inf, Infinity\]\}\
-\{\[Infinity, Infinity\]\} \{\[NaN, NaN\]\} \{\[\u221E, Infinity\]\}"}
+\{\[Infinity, Infinity\]\} \{\[NaN, NaN\]\} \{\[\u03C0, 3\.141593\]\}\
+\{\[\u2107, 2\.718282\]\} \{\[\u221E, Infinity\]\}"}
 
 ###############################################################################
 
-runTest {test expr-1.40.2 {named System.Single values} -body {
+runTest {test expr-1.40.2 {named System.Single values} -setup {
+  if {[haveConstraint ieee754r2008]} then {
+    saveAndResetPrecision 14
+  }
+} -body {
   set x [object invoke -flags +NonPublic Value namedSingles]
   set y [object create StringList $x]
   lsort [getStringFromObjectHandle $y]
 } -cleanup {
+  if {[haveConstraint ieee754r2008]} then {
+    restorePrecision
+  }
+
   unset -nocomplain x y
 } -constraints {eagle command.object} \
 -constraintExpression {[haveInfinitySymbol]} -result "\{\[+Inf, \u221E\]\}\
 \{\[+Infinity, \u221E\]\} \{\[+\u221E, \u221E\]\} \{\[-Inf, -\u221E\]\}\
 \{\[-Infinity, -\u221E\]\} \{\[-\u221E, -\u221E\]\} \{\[Inf, \u221E\]\}\
-\{\[Infinity, \u221E\]\} \{\[NaN, NaN\]\} \{\[\u221E, \u221E\]\}"}
+\{\[Infinity, \u221E\]\} \{\[NaN, NaN\]\} \{\[\u03C0, 3\.141593\]\}\
+\{\[\u2107, 2\.718282\]\} \{\[\u221E, \u221E\]\}"}
 
 ###############################################################################
 
-runTest {test expr-1.41.1 {named System.Double values} -body {
+runTest {test expr-1.41.1 {named System.Double values} -setup {
+  if {[haveConstraint ieee754r2008]} then {
+    saveAndResetPrecision 14
+  }
+} -body {
   set x [object invoke -flags +NonPublic Value namedDoubles]
   set y [object create StringList $x]
   lsort [getStringFromObjectHandle $y]
 } -cleanup {
+  if {[haveConstraint ieee754r2008]} then {
+    restorePrecision
+  }
+
   unset -nocomplain x y
 } -constraints {eagle command.object} \
 -constraintExpression {![haveInfinitySymbol]} -result "\{\[+Inf, Infinity\]\}\
 \{\[+Infinity, Infinity\]\} \{\[+\u221E, Infinity\]\} \{\[-Inf, -Infinity\]\}\
 \{\[-Infinity, -Infinity\]\} \{\[-\u221E, -Infinity\]\} \{\[Inf, Infinity\]\}\
-\{\[Infinity, Infinity\]\} \{\[NaN, NaN\]\} \{\[\u221E, Infinity\]\}"}
+\{\[Infinity, Infinity\]\} \{\[NaN, NaN\]\} \{\[\u03C0, 3\.14159265358979\]\}\
+\{\[\u2107, 2\.71828182845905\]\} \{\[\u221E, Infinity\]\}"}
 
 ###############################################################################
 
-runTest {test expr-1.41.2 {named System.Double values} -body {
+runTest {test expr-1.41.2 {named System.Double values} -setup {
+  if {[haveConstraint ieee754r2008]} then {
+    saveAndResetPrecision 14
+  }
+} -body {
   set x [object invoke -flags +NonPublic Value namedDoubles]
   set y [object create StringList $x]
   lsort [getStringFromObjectHandle $y]
 } -cleanup {
+  if {[haveConstraint ieee754r2008]} then {
+    restorePrecision
+  }
+
   unset -nocomplain x y
 } -constraints {eagle command.object} \
 -constraintExpression {[haveInfinitySymbol]} -result "\{\[+Inf, \u221E\]\}\
 \{\[+Infinity, \u221E\]\} \{\[+\u221E, \u221E\]\} \{\[-Inf, -\u221E\]\}\
 \{\[-Infinity, -\u221E\]\} \{\[-\u221E, -\u221E\]\} \{\[Inf, \u221E\]\}\
-\{\[Infinity, \u221E\]\} \{\[NaN, NaN\]\} \{\[\u221E, \u221E\]\}"}
+\{\[Infinity, \u221E\]\} \{\[NaN, NaN\]\} \{\[\u03C0, 3\.14159265358979\]\}\
+\{\[\u2107, 2\.71828182845905\]\} \{\[\u221E, \u221E\]\}"}
 
 ###############################################################################
 

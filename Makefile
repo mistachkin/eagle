@@ -29,7 +29,7 @@
 # variable set to the correct version, the native .NET libraries cannot be
 # successfully built and will be always be skipped.
 #
-# DOTNET_SDK_VERSION = 10.0.7
+# DOTNET_SDK_VERSION = 10.0.10
 
 # =============================================================================
 #                     Installation Configuration Variables
@@ -174,11 +174,11 @@ validate-dirs: FORCE
 
 restore: validate-dotnet
 	if [ -f "$(BUILD_SOLUTION_1)" ]; then _SOLUTION="$(BUILD_SOLUTION_1)"; else _SOLUTION="$(BUILD_SOLUTION_2)"; fi; \
-	$(DOTNET_ENV) $(DOTNET) restore "$$_SOLUTION"
+	$(DOTNET_ENV) $(DOTNET) restore "$$_SOLUTION" $(BUILD_ARGS)
 
 add-sds-pkg: validate-dotnet
 	$(SED) 's|!-- $(DOTNET_SDS_PKG_NAME) --|PackageReference Include="$(DOTNET_SDS_PKG_NAME)" Version="$(DOTNET_SDS_PKG_VERSION)" /|' "Shell/EagleShellNetStandard2X.csproj" > "Shell/EagleShellNetStandard2X.csproj.tmp" && $(MV) Shell/EagleShellNetStandard2X.csproj.tmp Shell/EagleShellNetStandard2X.csproj
-	$(DOTNET_ENV) $(DOTNET) restore Shell/EagleShellNetStandard2X.csproj
+	$(DOTNET_ENV) $(DOTNET) restore Shell/EagleShellNetStandard2X.csproj $(BUILD_ARGS)
 
 # =============================================================================
 #                                Build Targets

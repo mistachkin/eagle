@@ -191,7 +191,7 @@ runTest {test function-2.13 {e function} -body {
 runTest {test function-2.14 {epsilon function} -body {
   list [expr {epsilon()}]
 } -constraints [fixConstraints {eagle !ieee754r2008}] -result \
-{4.94065645841247E-324}}
+{2.22044604925031E-16}}
 
 ###############################################################################
 
@@ -694,7 +694,7 @@ runTest {test function-3.1 {function argument counts} -setup {
 {e (1,1) 1 {too many arguments for math function "e"}}\
 {e (1,1,1) 1 {too many arguments for math function "e"}}\
 {e (1,1,1,1) 1 {too many arguments for math function "e"}}%entier%\
-{epsilon () 0 4.94065645841247E-324}\
+{epsilon () 0 2.22044604925031E-16}\
 {epsilon (1) 1 {too many arguments for math function "epsilon"}}\
 {epsilon (1,1) 1 {too many arguments for math function "epsilon"}}\
 {epsilon (1,1,1) 1 {too many arguments for math function "epsilon"}}\

@@ -112,10 +112,12 @@
     <!--
         NOTE: Should the "BaseIntermediateOutputPath" property be reset so that
               it is contained in the solution directory instead of individual
-              project directories?  By default, this is enabled.  This does not
-              work with .NET Core.
+              project directories?  By default, this is enabled for legacy
+              projects and disabled for Microsoft.NET.Sdk projects.  This does
+              not work with .NET Core.
     -->
-    <EagleBaseIntermediateOutputPath Condition="'$(EagleBaseIntermediateOutputPath)' == ''">true</EagleBaseIntermediateOutputPath>
+    <EagleBaseIntermediateOutputPath Condition="'$(EagleBaseIntermediateOutputPath)' == '' And '$(UsingMicrosoftNETSdk)' == 'true'">false</EagleBaseIntermediateOutputPath>
+    <EagleBaseIntermediateOutputPath Condition="'$(EagleBaseIntermediateOutputPath)' == '' And '$(UsingMicrosoftNETSdk)' != 'true'">true</EagleBaseIntermediateOutputPath>
 
     <!--
         NOTE: Enable use of the strong name signing tool without verifying that
@@ -993,7 +995,8 @@
               icon)?  By default, this is enabled.  If this is disabled, some
               features will be unavailable.
     -->
-    <EagleDrawing Condition="'$(EagleDrawing)' == ''">true</EagleDrawing>
+    <EagleDrawing Condition="'$(EagleDrawing)' == '' And '$(UsingMicrosoftNETSdk)' != 'true'">true</EagleDrawing>
+    <EagleDrawing Condition="'$(EagleDrawing)' == '' And '$(UsingMicrosoftNETSdk)' == 'true'">false</EagleDrawing>
 
     <!--
         NOTE: Allow use of System.Runtime.Remoting (primarily for testing)?  By
@@ -1019,7 +1022,8 @@
               By default, this is enabled.  If this is disabled, some features
               will be unavailable.
     -->
-    <EagleWinForms Condition="'$(EagleWinForms)' == ''">true</EagleWinForms>
+    <EagleWinForms Condition="'$(EagleWinForms)' == '' And '$(UsingMicrosoftNETSdk)' != 'true'">true</EagleWinForms>
+    <EagleWinForms Condition="'$(EagleWinForms)' == '' And '$(UsingMicrosoftNETSdk)' == 'true'">false</EagleWinForms>
 
     <!--
         NOTE: Allow use of System.Xml?  By default, this is enabled.  If this is

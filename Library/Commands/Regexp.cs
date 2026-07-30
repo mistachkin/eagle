@@ -109,7 +109,7 @@ namespace Eagle._Commands
 
                         int argumentIndex = Index.Invalid;
 
-                        code = interpreter.GetOptions(options, arguments, 0, 1, Index.Invalid, false, ref argumentIndex, ref result);
+                        code = interpreter.GetOptions(options, arguments, 0, 1, Index.Invalid, true, ref argumentIndex, ref result);
 
                         if (code == ReturnCode.Ok)
                         {

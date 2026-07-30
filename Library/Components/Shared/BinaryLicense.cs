@@ -242,7 +242,8 @@ contain customizations; however, their respective licenses still apply:
 
     HotKey Plugin Third-Party Files
 
-        ""SciLexer*.*"" -- https://www.scintilla.org/
+        ""Scintilla*.*"" -- https://www.scintilla.org/
+        ""Lexilla*.*"" -- https://www.scintilla.org/
         ""ScintillaNET.*"" -- https://github.com/jacobslusser/ScintillaNET
 
 14. No distributor, dealer, salesperson, employee or agent of Mistachkin

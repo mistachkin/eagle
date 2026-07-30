@@ -236,7 +236,8 @@ namespace Eagle._Commands
                                                                 if (System.Object.ReferenceEquals(
                                                                         arraySearch.Variable, variable))
                                                                 {
-                                                                    result = arraySearch.AnyMore;
+                                                                    result = interpreter.BooleanToResult(
+                                                                        arraySearch.AnyMore);
                                                                 }
                                                                 else
                                                                 {

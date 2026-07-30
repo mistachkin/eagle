@@ -104708,6 +104708,26 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the value of the variable with the specified name,
+        /// using the specified variable flags.
+        /// </summary>
+        /// <param name="flags">
+        /// The flags used to control how the variable is set.
+        /// </param>
+        /// <param name="name">
+        /// The name of the variable to set.
+        /// </param>
+        /// <param name="value">
+        /// The value to assign to the variable.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// ReturnCode.Ok on success, ReturnCode.Error on failure.
+        /// </returns>
         internal ReturnCode SetVariableValue(
             VariableFlags flags,
             string name,
@@ -138027,6 +138047,27 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds the target name for invoking the specified
+        /// alias, given its arguments.  This overload discards the resulting
+        /// target arguments.
+        /// </summary>
+        /// <param name="alias">
+        /// The alias whose target name is being determined.
+        /// </param>
+        /// <param name="arguments">
+        /// The arguments supplied to the alias.
+        /// </param>
+        /// <param name="targetName">
+        /// Upon success, this parameter receives the resolved target name.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         private ReturnCode GetAliasArguments(
             IAlias alias,
             ArgumentList arguments,
@@ -138042,6 +138083,30 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds the target name and target arguments for
+        /// invoking the specified alias, given its arguments.
+        /// </summary>
+        /// <param name="alias">
+        /// The alias whose target name and arguments are being determined.
+        /// </param>
+        /// <param name="arguments">
+        /// The arguments supplied to the alias.
+        /// </param>
+        /// <param name="targetName">
+        /// Upon success, this parameter receives the resolved target name.
+        /// </param>
+        /// <param name="targetArguments">
+        /// Upon success, this parameter receives the resolved target
+        /// arguments.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         internal ReturnCode GetAliasArguments(
             IAlias alias,
             ArgumentList arguments,

@@ -521,7 +521,7 @@ namespace Eagle._Commands
 
                                                         if (SharedStringOps.SystemEquals(subCommand, "equal"))
                                                         {
-                                                            result = (compare == 0);
+                                                            result = interpreter.BooleanToResult(compare == 0);
                                                         }
                                                         else
                                                         {

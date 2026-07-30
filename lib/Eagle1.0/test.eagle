@@ -12998,6 +12998,61 @@ namespace eval ::Eagle {
     return $result
   }
 
+  proc ldifferences { list1 list2 } {
+    # <help>
+    # This procedure computes the symmetric difference between two lists,
+    # classifying each differing element by the list it belongs to.  It is
+    # used by the statistics reporting machinery, when reporting of test
+    # mutations is enabled, to show exactly which resource names (e.g.
+    # procedures, variables, etc) were added or removed by a test, rather
+    # than merely reporting that the associated counts changed.
+    #
+    # How it works: it scans the first list, adding a two-element sub-list of
+    # the form {MISSING <element>} to the result for each element not found
+    # in the second list; it then scans the second list, adding a two-element
+    # sub-list of the form {EXTRA <element>} for each element not found in
+    # the first list.  When the first list is a "before" snapshot and the
+    # second list is an "after" snapshot, the MISSING elements are those
+    # deleted by the test and the EXTRA elements are those leaked by it.
+    #
+    # Tricky details: comparisons use exact matching and element order is
+    # ignored.  Duplicates are handled naively: an element present in both
+    # lists is never reported, even if its number of occurrences differs,
+    # while an element present in only one list is reported once per
+    # occurrence.  It should also be noted that this procedure has quite a
+    # few similarities with the [ldifference] procedure defined in the file
+    # "list.eagle"; however, this procedure is purposely defined here, just
+    # in case it needs to be further customized for use by the test package,
+    # e.g. it already uses MISSING and EXTRA markers that are not present in
+    # the (more general purpose) [ldifference] procedure.
+    #
+    # Arguments:
+    #   list1 -- The first list, typically a "before" resource-name snapshot.
+    #   list2 -- The second list, typically an "after" resource-name snapshot.
+    #
+    # Results:
+    #   A list of two-element sub-lists, each consisting of the literal
+    #   MISSING or EXTRA followed by the differing element; empty if the two
+    #   lists contain the same elements.
+    # </help>
+
+    set result [list]
+
+    foreach element $list1 {
+      if {[lsearch -exact $list2 $element] == -1} then {
+        lappend result [list MISSING $element]
+      }
+    }
+
+    foreach element $list2 {
+      if {[lsearch -exact $list1 $element] == -1} then {
+        lappend result [list EXTRA $element]
+      }
+    }
+
+    return $result
+  }
+
   proc reportTestStatistics {
           channel name stop statsVarName namesVarName {quiet false} } {
     # <help>
@@ -13083,41 +13138,74 @@ namespace eval ::Eagle {
         continue
       }
 
-      if {$array($statistic,after) > $array($statistic,before)} then {
-        lappend array(statistics,leaked) $statistic
+      if {[hasRuntimeOption reportTestMutations] && \
+          [info exists array($statistic,after,list)] && \
+          [info exists array($statistic,before,list)]} then {
+        set array($statistic,differences,list) \
+            [ldifferences $array($statistic,before,list) \
+            $array($statistic,after,list)]
 
-        if {![isTestUncountedLeak array $statistic]} then {
-          lappend ::eagle_debugger(leakedNames) $name $statistic
-        }
+        set array($statistic,differences) [llength \
+            $array($statistic,differences,list)]
 
-        maybeInvokeForTester [appendArgs ::leaked_ $statistic]; # HOOK
+        if {$array($statistic,differences) > 0} then {
+          lappend array(statistics,leaked) $statistic
+          lappend array(statistics,mutated) $statistic
 
-        if {!$quiet} then {
-          tputs $channel [appendArgs "==== \"" $name "\" LEAKED " \
-              $statistic \n]
-        }
-
-        if {[info exists array($statistic,before,list)]} then {
-          if {!$quiet} then {
-            tputs $channel [appendArgs "---- " $statistic " BEFORE: " \
-                [formatList $array($statistic,before,list) <none>] \n]
+          if {![isTestUncountedLeak array $statistic]} then {
+            lappend ::eagle_debugger(leakedNames) $name $statistic
+            lappend ::eagle_debugger(mutatedNames) $name $statistic
           }
-        }
 
-        if {[info exists array($statistic,after,list)]} then {
+          maybeInvokeForTester [appendArgs ::mutated_ $statistic]; # HOOK
+
           if {!$quiet} then {
-            tputs $channel [appendArgs "---- " $statistic " AFTER: " \
-                [formatList $array($statistic,after,list) <none>] \n]
+            tputs $channel [appendArgs \
+                "==== \"" $name "\" MUTATED " $statistic ":\n\t" \
+                [join $array($statistic,differences,list) \n\t] \n]
           }
-        }
 
-        if {[isTestUncountedLeak array $statistic]} then {
-          continue
+          incr count
+        } else {
+          maybeInvokeForTester [appendArgs ::notMutated_ $statistic]; # HOOK
         }
-
-        incr count
       } else {
-        maybeInvokeForTester [appendArgs ::notLeaked_ $statistic]; # HOOK
+        if {$array($statistic,after) > $array($statistic,before)} then {
+          lappend array(statistics,leaked) $statistic
+
+          if {![isTestUncountedLeak array $statistic]} then {
+            lappend ::eagle_debugger(leakedNames) $name $statistic
+          }
+
+          maybeInvokeForTester [appendArgs ::leaked_ $statistic]; # HOOK
+
+          if {!$quiet} then {
+            tputs $channel [appendArgs "==== \"" $name "\" LEAKED " \
+                $statistic \n]
+          }
+
+          if {[info exists array($statistic,before,list)]} then {
+            if {!$quiet} then {
+              tputs $channel [appendArgs "---- " $statistic " BEFORE: " \
+                  [formatList $array($statistic,before,list) <none>] \n]
+            }
+          }
+
+          if {[info exists array($statistic,after,list)]} then {
+            if {!$quiet} then {
+              tputs $channel [appendArgs "---- " $statistic " AFTER: " \
+                  [formatList $array($statistic,after,list) <none>] \n]
+            }
+          }
+
+          if {[isTestUncountedLeak array $statistic]} then {
+            continue
+          }
+
+          incr count
+        } else {
+          maybeInvokeForTester [appendArgs ::notLeaked_ $statistic]; # HOOK
+        }
       }
     }
 
@@ -25540,8 +25628,8 @@ namespace eval ::Eagle {
         enableTestStatisticsLists shouldRecordTestStatistics \
         shouldReportTestStatistics maybeRecordTestStatistics \
         maybeReportTestStatistics recordTestStatistics \
-        getNamesForTestStatistics reportTestStatistics formatList \
-        formatListAsDict formatLeakedNames pathToRegexp \
+        getNamesForTestStatistics ldifferences reportTestStatistics \
+        formatList formatListAsDict formatLeakedNames pathToRegexp \
         assemblyNameToRegexp maybeGetOption inverseLsearchGlob \
         removePathFromFileNames formatDecimal clearTestPercent \
         reportTestPercent reportArrayGet reportTestStatisticCounts \

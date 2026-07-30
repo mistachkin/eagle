@@ -6715,6 +6715,16 @@ namespace Eagle._Components.Private
             //       producing {colName value colName value ...} per
             //       row.
             //
+            /// <summary>
+            /// This method converts the rows of this data table into a list of
+            /// column name and value pairs, up to the specified limit.
+            /// </summary>
+            /// <param name="limit">
+            /// The maximum number of rows to convert.
+            /// </param>
+            /// <returns>
+            /// A list containing one sub-list of name and value pairs per row.
+            /// </returns>
             public IStringList ToDictionary(
                 int limit /* in */
                 )
@@ -6724,6 +6734,22 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method converts the filtered and/or sorted rows of this
+            /// data table into a list of column name and value pairs.
+            /// </summary>
+            /// <param name="filter">
+            /// The optional filter expression selecting the rows; this
+            /// parameter may be null.
+            /// </param>
+            /// <param name="sort">
+            /// The optional sort expression ordering the rows; this parameter
+            /// may be null.
+            /// </param>
+            /// <returns>
+            /// A list containing one sub-list of name and value pairs per
+            /// matching row.
+            /// </returns>
             public IStringList ToDictionary(
                 string filter, /* in */
                 string sort    /* in */
@@ -6739,6 +6765,26 @@ namespace Eagle._Components.Private
             // NOTE: Like ToDictionary but operates on a filtered
             //       and/or sorted subset of rows.
             //
+            /// <summary>
+            /// This method converts the filtered and/or sorted rows of this
+            /// data table into a list of column name and value pairs, up to the
+            /// specified limit.
+            /// </summary>
+            /// <param name="filter">
+            /// The optional filter expression selecting the rows; this
+            /// parameter may be null.
+            /// </param>
+            /// <param name="sort">
+            /// The optional sort expression ordering the rows; this parameter
+            /// may be null.
+            /// </param>
+            /// <param name="limit">
+            /// The maximum number of rows to convert.
+            /// </param>
+            /// <returns>
+            /// A list containing one sub-list of name and value pairs per
+            /// matching row.
+            /// </returns>
             public IStringList ToDictionary(
                 string filter, /* in */
                 string sort,   /* in */
@@ -6754,6 +6800,13 @@ namespace Eagle._Components.Private
             //
             // NOTE: Returns column names as a StringList.
             //
+            /// <summary>
+            /// This method returns the names of the columns in this data table
+            /// as a list.
+            /// </summary>
+            /// <returns>
+            /// A list containing the name of each column in this data table.
+            /// </returns>
             public IStringList GetColumnNames()
             {
                 StringList result = new StringList();
