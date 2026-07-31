@@ -57973,7 +57973,7 @@ namespace Eagle._Components.Public
                                 //         have been completed.
                                 //
                                 /* IGNORED */
-                                EntityOps.SignalDirty(variable, null);
+                                EntityOps.SignalDirty(this, variable, null);
                             }
                         }
 
@@ -103727,7 +103727,7 @@ namespace Eagle._Components.Public
                                                 // BUGFIX: Mark the variable as "dirty" AFTER the
                                                 //         actual modifications have been completed.
                                                 //
-                                                EntityOps.SignalDirty(variable, index);
+                                                EntityOps.SignalDirty(this, variable, index);
                                             }
                                             else
                                             {
@@ -103924,7 +103924,7 @@ namespace Eagle._Components.Public
                                     // BUGFIX: Mark the variable as "dirty" AFTER the
                                     //         actual modifications have been completed.
                                     //
-                                    EntityOps.SignalDirty(variable, null);
+                                    EntityOps.SignalDirty(this, variable, null);
                                 }
 
                                 return traceInfo.ReturnCode;
@@ -105504,7 +105504,7 @@ namespace Eagle._Components.Public
                                             // BUGFIX: Mark the variable as "dirty" AFTER the
                                             //         actual modifications have been completed.
                                             //
-                                            EntityOps.SignalDirty(variable, traceInfo.Index);
+                                            EntityOps.SignalDirty(this, variable, traceInfo.Index);
                                         }
                                         else
                                         {
@@ -105711,7 +105711,7 @@ namespace Eagle._Components.Public
                                         // BUGFIX: Mark the variable as "dirty" AFTER the
                                         //         actual modifications have been completed.
                                         //
-                                        EntityOps.SignalDirty(variable, null);
+                                        EntityOps.SignalDirty(this, variable, null);
                                     }
 
                                     return traceInfo.ReturnCode;
@@ -105942,7 +105942,7 @@ namespace Eagle._Components.Public
                                     //         actual modifications have been completed.
                                     //
                                     EntityOps.SetUndefined(variable, false);
-                                    EntityOps.SignalDirty(variable, traceInfo.Index);
+                                    EntityOps.SignalDirty(this, variable, traceInfo.Index);
                                 }
 
                                 return traceInfo.ReturnCode;
@@ -106583,7 +106583,7 @@ namespace Eagle._Components.Public
                                                         // BUGFIX: Mark the variable as "dirty" AFTER the
                                                         //         actual modifications have been completed.
                                                         //
-                                                        EntityOps.SignalDirty(variable, traceInfo.Index);
+                                                        EntityOps.SignalDirty(this, variable, traceInfo.Index);
                                                     }
                                                     else
                                                     {
@@ -106661,7 +106661,7 @@ namespace Eagle._Components.Public
                                                     // BUGFIX: Mark the variable as "dirty" AFTER the
                                                     //         actual modifications have been completed.
                                                     //
-                                                    EntityOps.SignalDirty(variable, null);
+                                                    EntityOps.SignalDirty(this, variable, null);
                                                 }
                                             }
 
@@ -106928,7 +106928,7 @@ namespace Eagle._Components.Public
                                         // BUGFIX: Mark the variable as "dirty" AFTER the
                                         //         actual modifications have been completed.
                                         //
-                                        EntityOps.SignalDirty(variable, null);
+                                        EntityOps.SignalDirty(this, variable, null);
                                     }
 
                                     return traceInfo.ReturnCode;

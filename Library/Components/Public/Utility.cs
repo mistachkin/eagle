@@ -4795,6 +4795,9 @@ namespace Eagle._Components.Public
         /// This method marks the specified variable, and optionally one
         /// of its array elements, as dirty.
         /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter that owns the variable being signaled.
+        /// </param>
         /// <param name="variable">
         /// The variable to modify; this parameter may be null.
         /// </param>
@@ -4807,11 +4810,12 @@ namespace Eagle._Components.Public
         /// otherwise, false.
         /// </returns>
         public static bool SignalVariableDirty(
+            Interpreter interpreter,
             IVariable variable,
             string index
             )
         {
-            return EntityOps.SignalDirty(variable, index);
+            return EntityOps.SignalDirty(interpreter, variable, index);
         }
 
         ///////////////////////////////////////////////////////////////////////

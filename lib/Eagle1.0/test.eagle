@@ -13165,6 +13165,10 @@ namespace eval ::Eagle {
                 [join $array($statistic,differences,list) \n\t] \n]
           }
 
+          if {[isTestUncountedLeak array $statistic]} then {
+            continue
+          }
+
           incr count
         } else {
           maybeInvokeForTester [appendArgs ::notMutated_ $statistic]; # HOOK

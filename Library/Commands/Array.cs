@@ -231,13 +231,25 @@ namespace Eagle._Commands
                                                         {
                                                             ArraySearch arraySearch;
 
-                                                            if (arraySearches.TryGetValue(arguments[3], out arraySearch))
+                                                            if (arraySearches.TryGetValue(
+                                                                    arguments[3], out arraySearch))
                                                             {
                                                                 if (System.Object.ReferenceEquals(
                                                                         arraySearch.Variable, variable))
                                                                 {
-                                                                    result = interpreter.BooleanToResult(
-                                                                        arraySearch.AnyMore);
+                                                                    if (arraySearch.Invalidated)
+                                                                    {
+                                                                        result = String.Format(
+                                                                            "search identifier \"{0}\" was invalidated",
+                                                                            arguments[3]);
+
+                                                                        code = ReturnCode.Error;
+                                                                    }
+                                                                    else
+                                                                    {
+                                                                        result = interpreter.BooleanToResult(
+                                                                            arraySearch.AnyMore);
+                                                                    }
                                                                 }
                                                                 else
                                                                 {
@@ -463,7 +475,7 @@ namespace Eagle._Commands
                                                                                         variables[variable2.Name] = variable2;
 
                                                                                         if (!noSignal)
-                                                                                            EntityOps.SignalDirty(variable2, null);
+                                                                                            EntityOps.SignalDirty(interpreter, variable2, null);
 
                                                                                         result = String.Empty;
                                                                                     }
@@ -478,7 +490,7 @@ namespace Eagle._Commands
                                                                                     variables[variable2.Name] = variable2;
 
                                                                                     if (!noSignal)
-                                                                                        EntityOps.SignalDirty(variable2, null);
+                                                                                        EntityOps.SignalDirty(interpreter, variable2, null);
 
                                                                                     result = String.Empty;
                                                                                 }
@@ -766,13 +778,26 @@ namespace Eagle._Commands
                                                         {
                                                             ArraySearch arraySearch;
 
-                                                            if (arraySearches.TryGetValue(arguments[3], out arraySearch))
+                                                            if (arraySearches.TryGetValue(
+                                                                    arguments[3], out arraySearch))
                                                             {
-                                                                if (System.Object.ReferenceEquals(arraySearch.Variable, variable))
+                                                                if (System.Object.ReferenceEquals(
+                                                                        arraySearch.Variable, variable))
                                                                 {
-                                                                    arraySearches.Remove(arguments[3]);
+                                                                    if (arraySearch.Invalidated)
+                                                                    {
+                                                                        result = String.Format(
+                                                                            "search identifier \"{0}\" was invalidated",
+                                                                            arguments[3]);
 
-                                                                    result = String.Empty;
+                                                                        code = ReturnCode.Error;
+                                                                    }
+                                                                    else
+                                                                    {
+                                                                        arraySearches.Remove(arguments[3]);
+
+                                                                        result = String.Empty;
+                                                                    }
                                                                 }
                                                                 else
                                                                 {
@@ -1337,11 +1362,24 @@ namespace Eagle._Commands
                                                         {
                                                             ArraySearch arraySearch;
 
-                                                            if (arraySearches.TryGetValue(arguments[3], out arraySearch))
+                                                            if (arraySearches.TryGetValue(
+                                                                    arguments[3], out arraySearch))
                                                             {
-                                                                if (System.Object.ReferenceEquals(arraySearch.Variable, variable))
+                                                                if (System.Object.ReferenceEquals(
+                                                                        arraySearch.Variable, variable))
                                                                 {
-                                                                    result = arraySearch.GetNextElement();
+                                                                    if (arraySearch.Invalidated)
+                                                                    {
+                                                                        result = String.Format(
+                                                                            "search identifier \"{0}\" was invalidated",
+                                                                            arguments[3]);
+
+                                                                        code = ReturnCode.Error;
+                                                                    }
+                                                                    else
+                                                                    {
+                                                                        result = arraySearch.GetNextElement();
+                                                                    }
                                                                 }
                                                                 else
                                                                 {
@@ -1936,7 +1974,7 @@ namespace Eagle._Commands
                                                                         //
                                                                         EntityOps.SetArray(variable, true);
                                                                         EntityOps.SetUndefined(variable, false);
-                                                                        EntityOps.SignalDirty(variable, null);
+                                                                        EntityOps.SignalDirty(interpreter, variable, null);
 
                                                                         //
                                                                         // NOTE: This command returns an empty result on

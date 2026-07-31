@@ -15776,7 +15776,7 @@ namespace Eagle._Components.Private
                         if (direct)
                         {
                             EntityOps.SetUndefined(variable, false);
-                            EntityOps.SignalDirty(variable, null);
+                            EntityOps.SignalDirty(interpreter, variable, null);
                         }
                     }
 

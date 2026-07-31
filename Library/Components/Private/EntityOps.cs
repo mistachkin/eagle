@@ -20,9 +20,13 @@ using System.Threading;
 using Eagle._Attributes;
 using Eagle._Components.Public;
 using Eagle._Constants;
+using Eagle._Containers.Private;
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Private;
 using Eagle._Interfaces.Public;
+
+using ArraySearchPair = System.Collections.Generic.KeyValuePair<
+    string, Eagle._Components.Private.ArraySearch>;
 
 namespace Eagle._Components.Private
 {
@@ -2886,6 +2890,9 @@ namespace Eagle._Components.Private
         /// <summary>
         /// This method marks the specified variable, and optionally one of its array elements, as dirty.
         /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter that owns the variable being signaled.
+        /// </param>
         /// <param name="variable">
         /// The variable to modify. This value may be null.
         /// </param>
@@ -2896,8 +2903,9 @@ namespace Eagle._Components.Private
         /// True if the variable was non-null and its flags were updated; otherwise, false.
         /// </returns>
         public static bool SignalDirty(
-            IVariable variable, /* in */
-            string index        /* in, optional */
+            Interpreter interpreter, /* in */
+            IVariable variable,      /* in */
+            string index             /* in, optional */
             )
         {
             if (variable == null)
@@ -2908,6 +2916,9 @@ namespace Eagle._Components.Private
 
             if (arrayValue != null)
             {
+                /* NO RESULT */
+                InvalidateArraySearches(interpreter, variable);
+
                 //
                 // TODO: To support waiting (and being notified) on array
                 //       elements that have never been waited on nor flagged
@@ -2929,6 +2940,56 @@ namespace Eagle._Components.Private
 
             variable.SetFlags(VariableFlags.Dirty, true);
             return result;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        /// <summary>
+        /// Invalidates all array searches that refer to the specified
+        /// variable.  This should cause a script error the next time
+        /// any of those array searches are used.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter that owns the variable specified by the
+        /// <paramref name="variable" /> parameter.
+        /// </param>
+        /// <param name="variable">
+        /// The variable which may have array searches to invalidate.
+        /// </param>
+        private static void InvalidateArraySearches(
+            Interpreter interpreter, /* in */
+            IVariable variable       /* in */
+            )
+        {
+            //
+            // HACK: Invalidate pending array searches (only) for the
+            //       variable being signaled as dirty.
+            //
+            if (interpreter == null)
+                return;
+
+            lock (interpreter.InternalSyncRoot) /* TRANSACTIONAL */
+            {
+                ArraySearchDictionary arraySearches =
+                    interpreter.ArraySearches;
+
+                if (arraySearches == null)
+                    return;
+
+                foreach (ArraySearchPair pair in arraySearches)
+                {
+                    ArraySearch arraySearch = pair.Value;
+
+                    if (arraySearch == null)
+                        continue;
+
+                    if (Object.ReferenceEquals(
+                            arraySearch.Variable, variable))
+                    {
+                        arraySearch.Invalidated = true;
+                    }
+                }
+            }
         }
         #endregion
 

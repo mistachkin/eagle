@@ -251,7 +251,7 @@ namespace Eagle._Commands
 
                                 variable.Value = dictionary;
 
-                                EntityOps.SignalDirty(variable, null);
+                                EntityOps.SignalDirty(interpreter, variable, null);
 
                                 result = dictionary;
                             }
@@ -767,7 +767,7 @@ namespace Eagle._Commands
 
                                 variable.Value = dictionary;
 
-                                EntityOps.SignalDirty(variable, null);
+                                EntityOps.SignalDirty(interpreter, variable, null);
 
                                 result = longValue;
                             }
@@ -906,7 +906,7 @@ namespace Eagle._Commands
 
                                 variable.Value = dictionary;
 
-                                EntityOps.SignalDirty(variable, null);
+                                EntityOps.SignalDirty(interpreter, variable, null);
 
                                 result = dictionary;
                             }
@@ -1223,7 +1223,7 @@ namespace Eagle._Commands
 
                                 variable.Value = dictionary;
 
-                                EntityOps.SignalDirty(variable, null);
+                                EntityOps.SignalDirty(interpreter, variable, null);
 
                                 result = dictionary;
                             }
@@ -1341,7 +1341,7 @@ namespace Eagle._Commands
 
                                     variable.Value = dictionary;
 
-                                    EntityOps.SignalDirty(variable, null);
+                                    EntityOps.SignalDirty(interpreter, variable, null);
                                 }
 
                                 result = dictionary;
@@ -1473,7 +1473,7 @@ namespace Eagle._Commands
 
                                     variable.Value = dictionary;
 
-                                    EntityOps.SignalDirty(variable, null);
+                                    EntityOps.SignalDirty(interpreter, variable, null);
                                 }
 
                                 Engine.ResetResult(interpreter, ref result);
@@ -1676,7 +1676,7 @@ namespace Eagle._Commands
 
                                     variable.Value = dictionary;
 
-                                    EntityOps.SignalDirty(variable, null);
+                                    EntityOps.SignalDirty(interpreter, variable, null);
                                 }
 
                                 if (code == ReturnCode.Ok)

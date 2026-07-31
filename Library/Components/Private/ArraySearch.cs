@@ -117,6 +117,25 @@ namespace Eagle._Components.Private
         {
             get { return variable; }
         }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        /// <summary>
+        /// The boolean flag indicating whether or not this instance has
+        /// been invalidated, i.e. by a modification to the associated
+        /// array while a search is pending.
+        /// </summary>
+        private bool invalidated;
+        /// <summary>
+        /// Gets or sets the boolean flag indicating whether or not this
+        /// instance has been invalidated, i.e. by a modification to the
+        /// associated array while a search is pending.
+        /// </summary>
+        public bool Invalidated
+        {
+            get { return invalidated; }
+            set { invalidated = value; }
+        }
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -424,4 +443,3 @@ namespace Eagle._Components.Private
         #endregion
     }
 }
-
