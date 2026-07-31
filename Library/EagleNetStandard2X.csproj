@@ -88,8 +88,8 @@
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
     <EagleBaseIntermediateOutputPath Condition="'$(EagleBaseIntermediateOutputPath)' == ''">false</EagleBaseIntermediateOutputPath>
-    <EagleConfigurationSuffix Condition="'$(EagleConfigurationSuffix)' == '' And '$(EagleNetStandard21)' == 'false'">NetStandard20</EagleConfigurationSuffix>
-    <EagleConfigurationSuffix Condition="'$(EagleConfigurationSuffix)' == '' And '$(EagleNetStandard21)' != 'false'">NetStandard21</EagleConfigurationSuffix>
+    <EagleConfigurationSuffix Condition="'$(EagleConfigurationSuffix)' == '' And ('$(EagleNetStandard21)' == 'false' And (('$(EagleDrawing)' == '' Or '$(EagleDrawing)' == 'false') And ('$(EagleWinForms)' == '' Or '$(EagleWinForms)' == 'false')))">NetStandard20</EagleConfigurationSuffix>
+    <EagleConfigurationSuffix Condition="'$(EagleConfigurationSuffix)' == '' And ('$(EagleNetStandard21)' != 'false' And (('$(EagleDrawing)' != '' And '$(EagleDrawing)' != 'false') And ('$(EagleWinForms)' != '' And '$(EagleWinForms)' != 'false')))">NetStandard21</EagleConfigurationSuffix>
   </PropertyGroup>
 
   <!--
@@ -110,29 +110,6 @@
     <EagleIsolatedInterpreters Condition="'$(EagleIsolatedInterpreters)' == ''">false</EagleIsolatedInterpreters>
     <EagleIsolatedPlugins Condition="'$(EagleIsolatedPlugins)' == ''">false</EagleIsolatedPlugins>
     <EagleRemoting Condition="'$(EagleRemoting)' == ''">false</EagleRemoting>
-  </PropertyGroup>
-
-  <!--
-  ******************************************************************************
-  **       .NET Core 3.0 Specific Eagle Property Overrides for WinForms       **
-  ******************************************************************************
-  -->
-
-  <PropertyGroup Condition="'$(EagleDrawing)' != 'false' And
-                            '$(EagleWinForms)' != 'false'">
-    <!--
-        NOTE: Windows Forms is not available on .NET Standard.  When WinForms
-              support is requested via the "EagleWinForms" property, the core
-              is MULTI-TARGETED to "netstandard2.1;netcoreapp3.0": the target
-              "netstandard2.1" is what the non-WinForms plugins reference,
-              while the target "netcoreapp3.0" additionally carries Windows
-              Forms for the HotKey / Featherlight plugins.
-    -->
-    <EagleNetStandard21>true</EagleNetStandard21>
-    <TargetFrameworks>netstandard2.1;netcoreapp3.0</TargetFrameworks>
-    <UseWindowsForms Condition="'$(TargetFramework)' == 'netcoreapp3.0'">true</UseWindowsForms>
-    <EnableWindowsTargeting Condition="'$(TargetFramework)' == 'netcoreapp3.0'">true</EnableWindowsTargeting>
-    <EagleConfigurationSuffix>NetStandard21</EagleConfigurationSuffix>
   </PropertyGroup>
 
   <!--
@@ -341,6 +318,28 @@
               running on Windows?
     -->
     <PublicSign Condition="'$(OS)' != 'Windows_NT'">true</PublicSign>
+  </PropertyGroup>
+
+  <!--
+  ******************************************************************************
+  **       .NET Core 3.0 Specific Eagle Property Overrides for WinForms       **
+  ******************************************************************************
+  -->
+
+  <PropertyGroup Condition="'$(EagleDrawing)' != 'false' And
+                            '$(EagleWinForms)' != 'false'">
+    <!--
+        NOTE: Windows Forms is not available on .NET Standard.  When WinForms
+              support is requested via the "EagleWinForms" property, the core
+              is MULTI-TARGETED to "netstandard2.1;netcoreapp3.0": the target
+              "netstandard2.1" is what the non-WinForms plugins reference,
+              while the target "netcoreapp3.0" additionally carries Windows
+              Forms for the HotKey / Featherlight plugins.
+    -->
+    <EagleNetStandard21>true</EagleNetStandard21>
+    <TargetFrameworks>netstandard2.1;netcoreapp3.0</TargetFrameworks>
+    <UseWindowsForms Condition="'$(TargetFramework)' == 'netcoreapp3.0'">true</UseWindowsForms>
+    <EnableWindowsTargeting Condition="'$(TargetFramework)' == 'netcoreapp3.0'">true</EnableWindowsTargeting>
   </PropertyGroup>
 
   <!--

@@ -413,9 +413,9 @@
     <EagleRfcTimeStampUrl2 Condition="'$(EagleRfcTimeStampUrl2)' == ''">http://timestamp.digicert.com/</EagleRfcTimeStampUrl2>
 
     <!--
-        NOTE: The official secondary Authenticode RFC 3161 time-stamping digest
-              algorithm to use.  This should be a SHA2 based algorithm, such as
-              SHA512.
+        NOTE: The official tertiary Authenticode RFC 3161 time-stamping digest
+              algorithm to use.  This should be a SHA1 based algorithm, such as
+              SHA1.
     -->
     <EagleRfcTimeStampAlgorithm2 Condition="'$(EagleRfcTimeStampAlgorithm2)' == ''">sha1</EagleRfcTimeStampAlgorithm2>
 
@@ -427,9 +427,9 @@
     <EagleRfcTimeStampUrl3 Condition="'$(EagleRfcTimeStampUrl3)' == ''">http://timestamp.digicert.com/</EagleRfcTimeStampUrl3>
 
     <!--
-        NOTE: The official tertiary Authenticode RFC 3161 time-stamping digest
-              algorithm to use.  This should be a SHA1 based algorithm, such as
-              SHA1.
+        NOTE: The official secondary Authenticode RFC 3161 time-stamping digest
+              algorithm to use.  This should be a SHA2 based algorithm, such as
+              SHA512.
     -->
     <EagleRfcTimeStampAlgorithm3 Condition="'$(EagleRfcTimeStampAlgorithm3)' == ''">sha512</EagleRfcTimeStampAlgorithm3>
 
