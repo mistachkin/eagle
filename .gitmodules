@@ -26,3 +26,7 @@
 	path = vplugins
 	url = https://github.com/mistachkin/vplugins
 	branch = trunk
+[submodule "ScintillaNET"]
+	path = Externals/ScintillaNET/prj
+	url = https://github.com/mistachkin/ScintillaNET
+	branch = 3.6-mistachkin-prs
