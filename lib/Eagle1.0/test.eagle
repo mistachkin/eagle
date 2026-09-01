@@ -1151,7 +1151,7 @@ namespace eval ::Eagle {
   #       Unicode symbol for infinity (i.e. U+221E) instead of the literal
   #       string "Infinity".
   #
-  proc haveInfinitySymbol {} {
+  proc haveInfinitySymbol { {cultureName ""} } {
     # <help>
     # This procedure reports whether the current thread's culture-specific
     # number format represents infinity using the Unicode infinity symbol
@@ -1160,20 +1160,23 @@ namespace eval ::Eagle {
     # culture and by runtime version.
     #
     # How it works: under Eagle it reaches into the runtime to obtain the
-    # current thread, then its current culture, then that culture's number
-    # format object, guarding each step against a null handle.  It collects the
-    # positive and negative infinity symbols and compares them against the
-    # Unicode infinity symbol and its negated form.  When the comparison matches
-    # exactly it returns true; otherwise, or on any failure, it returns false.
-    # Under native Tcl it always returns false.
+    # current thread, then its current culture -OR- the caller specified
+    # culture, then that culture's number format object, guarding each step
+    # against a null handle.  It collects the positive and negative infinity
+    # symbols and compares them against the Unicode infinity symbol and its
+    # negated form.  When the comparison matches exactly it returns true;
+    # otherwise, or on any failure, it returns false.  Under native Tcl it
+    # always returns false.
     #
     # Tricky details: the check is wrapped so that any error reaching the
-    # runtime objects results in a false answer rather than propagating.  It is
-    # culture- and thread-sensitive, so the answer reflects the format in effect
-    # at the moment of the call.
+    # runtime objects results in a false answer rather than propagating.  It
+    # is culture- and thread-sensitive, so the answer reflects the format in
+    # effect at the moment of the call unless a specific culture has been
+    # specified by the caller.
     #
     # Arguments:
-    #   None.
+    #   cultureName -- The name of the culture to use when checking for the
+    #                  infinity symbol, e.g. "en-US", etc.
     #
     # Results:
     #   True when both the positive and negative infinity symbols are the
@@ -1190,7 +1193,13 @@ namespace eval ::Eagle {
           System.Threading.Thread CurrentThread]
 
       if {[isNonNullObjectHandle $thread]} then {
-        set culture [$thread -alias CurrentCulture]
+        if {[string length $cultureName] > 0} then {
+          set culture [object invoke -alias \
+              System.Globalization.CultureInfo \
+              GetCultureInfo $cultureName]
+        } else {
+          set culture [$thread -alias CurrentCulture]
+        }
 
         if {[isNonNullObjectHandle $culture]} then {
           set numberFormat [$culture -alias NumberFormat]

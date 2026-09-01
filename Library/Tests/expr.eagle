@@ -977,95 +977,163 @@ System.Uri System.Version}}
 
 ###############################################################################
 
-runTest {test expr-1.40.1 {named System.Single values} -setup {
-  if {[haveConstraint ieee754r2008]} then {
-    saveAndResetPrecision 14
+if {[isEagle]} then {
+  proc evalWithCulture { cultureName script } {
+    set culture [object invoke \
+        System.Globalization.CultureInfo \
+        GetCultureInfo $cultureName]
+
+    try {
+      set savedCulture [object invoke \
+          System.Threading.Thread.CurrentThread \
+          CurrentCulture]
+
+      object invoke \
+          System.Threading.Thread.CurrentThread \
+          CurrentCulture $culture
+
+      return [uplevel 1 $script]
+    } finally {
+      if {[info exists savedCulture]} then {
+        object invoke \
+            System.Threading.Thread.CurrentThread \
+            CurrentCulture $savedCulture
+
+        unset -nocomplain savedCulture
+      }
+    }
   }
+}
+
+###############################################################################
+
+runTest {test expr-1.40.1 {named System.Single values} -setup {
+  saveAndResetPrecision 7
+
+  set i [object invoke Interpreter GetActive]
 } -body {
-  set x [object invoke -flags +NonPublic Value namedSingles]
+  evalWithCulture en-US {
+    set c [object invoke \
+        System.Threading.Thread.CurrentThread \
+        CurrentCulture]; # en-US (?)
+
+    set x [object invoke -create -alias -flags +NonPublic \
+        Value namedSingles.ToList $i $c]
+
+    list; # stop leaking x
+  }
+
   set y [object create StringList $x]
   lsort [getStringFromObjectHandle $y]
 } -cleanup {
-  if {[haveConstraint ieee754r2008]} then {
-    restorePrecision
-  }
+  restorePrecision
 
-  unset -nocomplain x y
+  unset -nocomplain i c x y
 } -constraints {eagle command.object} \
--constraintExpression {![haveInfinitySymbol]} -result "\{\[+Inf, Infinity\]\}\
-\{\[+Infinity, Infinity\]\} \{\[+\u221E, Infinity\]\} \{\[-Inf, -Infinity\]\}\
-\{\[-Infinity, -Infinity\]\} \{\[-\u221E, -Infinity\]\} \{\[Inf, Infinity\]\}\
-\{\[Infinity, Infinity\]\} \{\[NaN, NaN\]\} \{\[\u03C0, 3\.141593\]\}\
-\{\[\u2107, 2\.718282\]\} \{\[\u221E, Infinity\]\}"}
+-constraintExpression {![haveInfinitySymbol en-US]} -result \
+"\{\[+Inf, Infinity\]\} \{\[+Infinity, Infinity\]\} \{\[+\u221E, Infinity\]\}\
+\{\[-Inf, -Infinity\]\} \{\[-Infinity, -Infinity\]\} \{\[-\u221E, -Infinity\]\}\
+\{\[Inf, Infinity\]\} \{\[Infinity, Infinity\]\} \{\[NaN, NaN\]\} \{\[\u03C0,\
+3\.141593\]\} \{\[\u2107, 2\.718282\]\} \{\[\u221E, Infinity\]\}"}
 
 ###############################################################################
 
 runTest {test expr-1.40.2 {named System.Single values} -setup {
-  if {[haveConstraint ieee754r2008]} then {
-    saveAndResetPrecision 14
-  }
+  saveAndResetPrecision 7
+
+  set i [object invoke Interpreter GetActive]
 } -body {
-  set x [object invoke -flags +NonPublic Value namedSingles]
+  evalWithCulture en-US {
+    set c [object invoke \
+        System.Threading.Thread.CurrentThread \
+        CurrentCulture]; # en-US (?)
+
+    set x [object invoke -create -alias -flags +NonPublic \
+        Value namedSingles.ToList $i $c]
+
+    list; # stop leaking x
+  }
+
   set y [object create StringList $x]
   lsort [getStringFromObjectHandle $y]
 } -cleanup {
-  if {[haveConstraint ieee754r2008]} then {
-    restorePrecision
-  }
+  restorePrecision
 
-  unset -nocomplain x y
+  unset -nocomplain i c x y
 } -constraints {eagle command.object} \
--constraintExpression {[haveInfinitySymbol]} -result "\{\[+Inf, \u221E\]\}\
-\{\[+Infinity, \u221E\]\} \{\[+\u221E, \u221E\]\} \{\[-Inf, -\u221E\]\}\
-\{\[-Infinity, -\u221E\]\} \{\[-\u221E, -\u221E\]\} \{\[Inf, \u221E\]\}\
-\{\[Infinity, \u221E\]\} \{\[NaN, NaN\]\} \{\[\u03C0, 3\.141593\]\}\
-\{\[\u2107, 2\.718282\]\} \{\[\u221E, \u221E\]\}"}
+-constraintExpression {[haveInfinitySymbol en-US]} -result \
+"\{\[+Inf, \u221E\]\} \{\[+Infinity, \u221E\]\} \{\[+\u221E, \u221E\]\}\
+\{\[-Inf, -\u221E\]\} \{\[-Infinity, -\u221E\]\} \{\[-\u221E, -\u221E\]\}\
+\{\[Inf, \u221E\]\} \{\[Infinity, \u221E\]\} \{\[NaN, NaN\]\} \{\[\u03C0,\
+3\.141593\]\} \{\[\u2107, 2\.718282\]\} \{\[\u221E, \u221E\]\}"}
 
 ###############################################################################
 
 runTest {test expr-1.41.1 {named System.Double values} -setup {
-  if {[haveConstraint ieee754r2008]} then {
-    saveAndResetPrecision 14
-  }
+  saveAndResetPrecision 15
+
+  set i [object invoke Interpreter GetActive]
 } -body {
-  set x [object invoke -flags +NonPublic Value namedDoubles]
+  evalWithCulture en-US {
+    set c [object invoke \
+        System.Threading.Thread.CurrentThread \
+        CurrentCulture]; # en-US (?)
+
+    set x [object invoke -create -alias -flags +NonPublic \
+        Value namedDoubles.ToList $i $c]
+
+    list; # stop leaking x
+  }
+
   set y [object create StringList $x]
   lsort [getStringFromObjectHandle $y]
 } -cleanup {
-  if {[haveConstraint ieee754r2008]} then {
-    restorePrecision
-  }
+  restorePrecision
 
-  unset -nocomplain x y
+  unset -nocomplain i c x y
 } -constraints {eagle command.object} \
--constraintExpression {![haveInfinitySymbol]} -result "\{\[+Inf, Infinity\]\}\
-\{\[+Infinity, Infinity\]\} \{\[+\u221E, Infinity\]\} \{\[-Inf, -Infinity\]\}\
-\{\[-Infinity, -Infinity\]\} \{\[-\u221E, -Infinity\]\} \{\[Inf, Infinity\]\}\
-\{\[Infinity, Infinity\]\} \{\[NaN, NaN\]\} \{\[\u03C0, 3\.14159265358979\]\}\
-\{\[\u2107, 2\.71828182845905\]\} \{\[\u221E, Infinity\]\}"}
+-constraintExpression {![haveInfinitySymbol en-US]} -result \
+"\{\[+Inf, Infinity\]\} \{\[+Infinity, Infinity\]\} \{\[+\u221E, Infinity\]\}\
+\{\[-Inf, -Infinity\]\} \{\[-Infinity, -Infinity\]\} \{\[-\u221E, -Infinity\]\}\
+\{\[Inf, Infinity\]\} \{\[Infinity, Infinity\]\} \{\[NaN, NaN\]\} \{\[\u03C0,\
+3\.14159265358979\]\} \{\[\u2107, 2\.71828182845905\]\} \{\[\u221E, Infinity\]\}"}
 
 ###############################################################################
 
 runTest {test expr-1.41.2 {named System.Double values} -setup {
-  if {[haveConstraint ieee754r2008]} then {
-    saveAndResetPrecision 14
-  }
+  saveAndResetPrecision 15
+
+  set i [object invoke Interpreter GetActive]
 } -body {
-  set x [object invoke -flags +NonPublic Value namedDoubles]
+  evalWithCulture en-US {
+    set c [object invoke \
+        System.Threading.Thread.CurrentThread \
+        CurrentCulture]; # en-US (?)
+
+    set x [object invoke -create -alias -flags +NonPublic \
+        Value namedDoubles.ToList $i $c]
+
+    list; # stop leaking x
+  }
+
   set y [object create StringList $x]
   lsort [getStringFromObjectHandle $y]
 } -cleanup {
-  if {[haveConstraint ieee754r2008]} then {
-    restorePrecision
-  }
+  restorePrecision
 
-  unset -nocomplain x y
+  unset -nocomplain i c x y
 } -constraints {eagle command.object} \
--constraintExpression {[haveInfinitySymbol]} -result "\{\[+Inf, \u221E\]\}\
-\{\[+Infinity, \u221E\]\} \{\[+\u221E, \u221E\]\} \{\[-Inf, -\u221E\]\}\
-\{\[-Infinity, -\u221E\]\} \{\[-\u221E, -\u221E\]\} \{\[Inf, \u221E\]\}\
-\{\[Infinity, \u221E\]\} \{\[NaN, NaN\]\} \{\[\u03C0, 3\.14159265358979\]\}\
-\{\[\u2107, 2\.71828182845905\]\} \{\[\u221E, \u221E\]\}"}
+-constraintExpression {[haveInfinitySymbol en-US]} -result \
+"\{\[+Inf, \u221E\]\} \{\[+Infinity, \u221E\]\} \{\[+\u221E, \u221E\]\}\
+\{\[-Inf, -\u221E\]\} \{\[-Infinity, -\u221E\]\} \{\[-\u221E, -\u221E\]\}\
+\{\[Inf, \u221E\]\} \{\[Infinity, \u221E\]\} \{\[NaN, NaN\]\} \{\[\u03C0,\
+3\.14159265358979\]\} \{\[\u2107, 2\.71828182845905\]\} \{\[\u221E, \u221E\]\}"}
+
+###############################################################################
+
+if {[isEagle]} then {
+  rename evalWithCulture ""
+}
 
 ###############################################################################
 

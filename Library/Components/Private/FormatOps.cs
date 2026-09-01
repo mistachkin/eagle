@@ -82,6 +82,12 @@ namespace Eagle._Components.Private
     {
         #region Private Constants
         /// <summary>
+        /// The format string to use when a floating-point value needs to be
+        /// capable of round-tripping via a string.
+        /// </summary>
+        private static string RoundtripFloatingPointFormat = "{0:R}";
+
+        /// <summary>
         /// The numeric format specifier used when formatting trace priority
         /// values (hexadecimal).
         /// </summary>
@@ -6734,6 +6740,45 @@ namespace Eagle._Components.Private
             return String.Format(
                 "{0} {1}", dateTime.ToString(Iso8601DateTimeOutputFormat),
                 offset).Trim();
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        /// <summary>
+        /// Attempts to figure out the format string to be used when formatting
+        /// floating-point values using the Tcl <c>tcl_precision</c> variable
+        /// value.
+        /// </summary>
+        /// <param name="precision">
+        /// The maximum number of significant digits to include, from zero through
+        /// seventeen.  Zero selects the shortest round-trippable representation.
+        /// </param>
+        /// <returns>
+        /// The format string to be used when formatting floating-point values
+        /// using the Tcl <c>tcl_precision</c> variable value -OR- null if it
+        /// cannot be determined.
+        /// </returns>
+        public static string GetPrecisionFormat(
+            int precision /* in */
+            )
+        {
+            if (precision < 0)
+                return null;
+
+            if (precision == 0)
+                return RoundtripFloatingPointFormat;
+
+            StringBuilder builder = StringBuilderFactory.Create();
+
+            builder.Append(Characters.OpenBrace);
+            builder.Append("0:G");
+
+            builder.AppendFormat(
+                CultureInfo.InvariantCulture, "{0}", precision);
+
+            builder.Append(Characters.CloseBrace);
+
+            return StringBuilderCache.GetStringAndRelease(ref builder);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////

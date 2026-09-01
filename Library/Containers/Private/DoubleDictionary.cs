@@ -9,17 +9,17 @@
  * RCS: @(#) $Id: $
  */
 
-#if SERIALIZATION
 using System;
-#endif
-
 using System.Collections.Generic;
+using System.Globalization;
 
 #if SERIALIZATION
 using System.Runtime.Serialization;
 #endif
 
 using Eagle._Attributes;
+using Eagle._Components.Private;
+using Eagle._Components.Public;
 using Eagle._Containers.Public;
 
 #if FAST_DICTIONARY
@@ -142,6 +142,95 @@ namespace Eagle._Containers.Private
             // do nothing.
         }
 #endif
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Private Methods
+        /// <summary>
+        /// Formats a double-precision floating-point value using semantics
+        /// that match those of the Tcl <c>tcl_precision</c> variable.
+        /// </summary>
+        /// <param name="provider">
+        /// The format provider to use for the <see cref="double" /> values.
+        /// </param>
+        /// <param name="value">
+        /// The double-precision floating-point value to format.
+        /// </param>
+        /// <param name="precision">
+        /// The maximum number of significant digits to include, from zero
+        /// through seventeen.  Zero selects the shortest round-trippable
+        /// representation.
+        /// </param>
+        /// <returns>
+        /// The invariant-culture string representation of
+        /// <paramref name="value" />.
+        /// </returns>
+        /// <exception cref="ArgumentOutOfRangeException">
+        /// <paramref name="precision" /> is less than zero or greater
+        /// than seventeen.
+        /// </exception>
+        private static string FormatValue(
+            IFormatProvider provider, /* in: OPTIONAL */
+            double value,             /* in */
+            int precision             /* in */
+            )
+        {
+            string format = FormatOps.GetPrecisionFormat(precision);
+
+            if (format == null)
+                return value.ToString();
+
+            return String.Format(provider, format, value);
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Public Methods
+        /// <summary>
+        /// Returns the key / value pairs within this instance, with the
+        /// floating-point values formatted to strings via the specified
+        /// provider, if any.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used for format the floating-point
+        /// values, if any.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture to be used when formatting the floating-point
+        /// values.
+        /// </param>
+        /// <returns>
+        /// The list of key / value pairs within this instance, with the
+        /// floating-point values formatted to strings via the specified
+        /// provider, if any.
+        /// </returns>
+        public StringDictionary ToList(
+            Interpreter interpreter, /* in: OPTIONAL */
+            CultureInfo cultureInfo  /* in: OPTIONAL */
+            )
+        {
+            int precision = 0;
+
+            if (interpreter != null)
+            {
+                if (cultureInfo == null)
+                    cultureInfo = interpreter.CultureInfo;
+
+                precision = interpreter.Precision;
+            }
+
+            StringDictionary result = new StringDictionary();
+
+            foreach (KeyValuePair<string, double> pair in this)
+            {
+                result.Add(pair.Key, FormatValue(
+                    cultureInfo, pair.Value, precision));
+            }
+
+            return result;
+        }
         #endregion
     }
 }
