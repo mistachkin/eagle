@@ -186,6 +186,11 @@ namespace Eagle._Commands
             if (options.IsPresent("-library", ref value))
                 library = (bool)value.Value;
 
+            bool package = false;
+
+            if (options.IsPresent("-package", ref value))
+                package = (bool)value.Value;
+
 #if DATA
             bool? bundle = null;
 
@@ -248,52 +253,85 @@ namespace Eagle._Commands
 
                             try
                             {
+                                ProcedureFlags savedProcedureFlags1 =
+                                    ProcedureFlags.None;
+
                                 if (library)
-                                    interpreter.EnterPackageLevel();
+                                {
+                                    interpreter.BeginLibraryProcedures(
+                                        out savedProcedureFlags1);
+                                }
 
                                 try
                                 {
-                                    if (time)
+                                    ProcedureFlags savedProcedureFlags2 =
+                                        ProcedureFlags.None;
+
+                                    if (package)
                                     {
-                                        profiler = ProfilerState.Create(
-                                            interpreter, ref dispose);
+                                        interpreter.BeginPackageProcedures(
+                                            out savedProcedureFlags2);
+
+                                        interpreter.EnterPackageLevel();
                                     }
 
-                                    if (profiler != null)
-                                        profiler.Start();
+                                    try
+                                    {
+                                        if (time)
+                                        {
+                                            profiler = ProfilerState.Create(
+                                                interpreter, ref dispose);
+                                        }
+
+                                        if (profiler != null)
+                                            profiler.Start();
 
 #if DATA
-                                    if (bundle == null)
-                                        bundle = PathOps.MightBeBundleFile(fileName);
+                                        if (bundle == null)
+                                            bundle = PathOps.MightBeBundleFile(fileName);
 
-                                    if ((bool)bundle)
-                                    {
-                                        code = interpreter.EvaluateBundleFile(
-                                            fileName, password, bundleFlags,
-                                            ref clientData, ref result);
-                                    }
-                                    else
+                                        if ((bool)bundle)
+                                        {
+                                            code = interpreter.EvaluateBundleFile(
+                                                fileName, password, bundleFlags,
+                                                ref clientData, ref result);
+                                        }
+                                        else
 #endif
-                                    {
-                                        code = interpreter.EvaluateFile(
-                                            encoding, fileName, ref result);
+                                        {
+                                            code = interpreter.EvaluateFile(
+                                                encoding, fileName, ref result);
+                                        }
+
+                                        if (profiler != null)
+                                        {
+                                            profiler.Stop();
+
+                                            TraceOps.DebugTrace(String.Format(
+                                                "Execute: completed in {0}",
+                                                FormatOps.MaybeNull(profiler)),
+                                                typeof(Source).Name,
+                                                TracePriority.Command);
+                                        }
                                     }
-
-                                    if (profiler != null)
+                                    finally
                                     {
-                                        profiler.Stop();
+                                        if (package)
+                                        {
+                                            interpreter.ExitPackageLevel();
 
-                                        TraceOps.DebugTrace(String.Format(
-                                            "Execute: completed in {0}",
-                                            FormatOps.MaybeNull(profiler)),
-                                            typeof(Source).Name,
-                                            TracePriority.Command);
+                                            interpreter.EndPackageProcedures(
+                                                ref savedProcedureFlags2);
+                                        }
                                     }
                                 }
                                 finally
                                 {
                                     if (library)
-                                        interpreter.ExitPackageLevel();
+                                    {
+                                        interpreter.EndLibraryProcedures(
+                                            ref savedProcedureFlags1);
+                                    }
                                 }
                             }
                             finally

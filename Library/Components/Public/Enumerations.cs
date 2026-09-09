@@ -29377,9 +29377,9 @@ namespace Eagle._Components.Public
         /// </summary>
         Core = 0x2,                    /* This procedure is included with the runtime. */
         /// <summary>
-        /// This procedure is part of the script library.
+        /// This procedure is considered to be part of the script library.
         /// </summary>
-        Library = 0x4,                 /* This procedure is part of the script library. */
+        Library = 0x4,                 /* This procedure is considered to be part of the script library. */
         /// <summary>
         /// This procedure is included with the interactive shell.
         /// </summary>
@@ -29536,6 +29536,11 @@ namespace Eagle._Components.Public
                                         * call values.  This means that those variables cannot be
                                         * modified in any "easy" way by the target procedure, even
                                         * on purpose. */
+
+        /// <summary>
+        /// This procedure was created while loading a script package.
+        /// </summary>
+        Package = 0x4000000,
 
         /// <summary>
         /// Reserved for arbitrary use by the application or script.

@@ -6923,17 +6923,31 @@ namespace Eagle._Components.Private
         /// to a bundle file, based on whether its extension matches the
         /// database file extension.
         /// </summary>
-        /// <param name="fileName">
-        /// The file name to check.  This parameter may be null.
+        /// <param name="path">
+        /// The (possibly qualified) file name to check.  This parameter may be
+        /// null.
         /// </param>
         /// <returns>
-        /// True if the file name might refer to a bundle file; otherwise,
-        /// false.
+        /// True if the file name might refer to a bundle file; otherwise, false.
         /// </returns>
         public static bool MightBeBundleFile(
-            string fileName /* in */
+            string path /* in */
             )
         {
+            string fileName;
+
+#if DATA
+            //
+            // HACK: If the path represents a script file within a bundle file,
+            //       it (obviously?) cannot be a bundle file itself; therefore,
+            //       return false now.
+            //
+            if (DataOps.VerifyBundlePath(path, true, out fileName))
+                return false;
+#endif
+
+            fileName = path;
+
             if (SharedStringOps.Equals(
                     GetExtension(fileName), FileExtension.Database,
                     ComparisonType))

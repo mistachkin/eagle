@@ -39,7 +39,6 @@ using ConnectionTriplet = Eagle._Components.Public.AnyTriplet<
 
 using ConnectionDictionary =
     Eagle._Containers.Private.DbConnectionTypeDictionary;
-using System.Collections;
 
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
@@ -1045,6 +1044,38 @@ namespace Eagle._Components.Private
 
             return String.Format(
                 "{0}{1}{2}", fileName, bundleNameDelimiter, fullName);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        /// <summary>
+        /// This method verifies a combined script bundle path and splits it
+        /// into its file name and full name components.
+        /// </summary>
+        /// <param name="path">
+        /// The combined bundle path to verify and split.
+        /// </param>
+        /// <param name="demand">
+        /// Non-zero if the full name is being verified for a demand-loaded
+        /// script; otherwise, zero.
+        /// </param>
+        /// <param name="fileName">
+        /// Upon success, receives the bundle database file name.
+        /// </param>
+        /// <returns>
+        /// True if the bundle path is valid; otherwise, false.
+        /// </returns>
+        public static bool VerifyBundlePath(
+            string path,        /* in */
+            bool demand,        /* in */
+            out string fileName /* out */
+            )
+        {
+            string fullName;
+            Result error = null;
+
+            return VerifyBundlePath(
+                path, demand, out fileName, out fullName, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////

@@ -4018,6 +4018,8 @@ namespace Eagle._Components.Private
                     Index.Invalid, Index.Invalid, "-password", null),
                 new Option(null, OptionFlags.MustHaveBooleanValue,
                     Index.Invalid, Index.Invalid, "-library", null),
+                new Option(null, OptionFlags.MustHaveBooleanValue,
+                    Index.Invalid, Index.Invalid, "-package", null),
 #if DATA
                 new Option(null, OptionFlags.MustHaveBooleanValue |
                     OptionFlags.Nullable, Index.Invalid,

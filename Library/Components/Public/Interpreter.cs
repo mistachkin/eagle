@@ -8639,7 +8639,7 @@ namespace Eagle._Components.Public
         /// argument cache.
         /// </param>
         internal void BeginNoArgumentCache(
-            out CacheFlags savedCacheFlags
+            out CacheFlags savedCacheFlags /* out */
             )
         {
             savedCacheFlags = ContextCacheFlags;
@@ -8662,7 +8662,7 @@ namespace Eagle._Components.Public
         /// <see cref="CacheFlags.None" /> upon return.
         /// </param>
         internal void EndNoArgumentCache(
-            ref CacheFlags savedCacheFlags
+            ref CacheFlags savedCacheFlags /* in, out */
             )
         {
             ContextCacheFlags = savedCacheFlags;
@@ -59781,8 +59781,8 @@ namespace Eagle._Components.Public
         /// restoration.
         /// </param>
         internal void BeginArgumentLocation(
-            InterpreterStateFlags? addFlags,
-            out InterpreterStateFlags savedInterpreterStateFlags
+            InterpreterStateFlags? addFlags,                     /* in */
+            out InterpreterStateFlags savedInterpreterStateFlags /* out */
             )
         {
             InterpreterStateFlags localAddFlags = InterpreterStateFlags.None;
@@ -59820,7 +59820,7 @@ namespace Eagle._Components.Public
         /// <see cref="InterpreterStateFlags.None" /> on return.
         /// </param>
         internal void EndArgumentLocation(
-            ref InterpreterStateFlags savedInterpreterStateFlags
+            ref InterpreterStateFlags savedInterpreterStateFlags /* in, out */
             )
         {
             if (!FlagOps.HasFlags(InterpreterStateFlagsNoLock,
@@ -59859,7 +59859,7 @@ namespace Eagle._Components.Public
         /// restoration.
         /// </param>
         private void BeginLibraryScriptPending(
-            out InterpreterStateFlags savedInterpreterStateFlags
+            out InterpreterStateFlags savedInterpreterStateFlags /* out */
             )
         {
             BeginArgumentLocation(
@@ -59878,7 +59878,7 @@ namespace Eagle._Components.Public
         /// <see cref="InterpreterStateFlags.None" /> on return.
         /// </param>
         private void EndLibraryScriptPending(
-            ref InterpreterStateFlags savedInterpreterStateFlags
+            ref InterpreterStateFlags savedInterpreterStateFlags /* in, out */
             )
         {
             EndArgumentLocation(
@@ -65909,7 +65909,7 @@ namespace Eagle._Components.Public
         /// that it can be restored.
         /// </param>
         internal static void BeginNoNewHostCallback(
-            ref NewHostCallback savedNewHostCallback
+            ref NewHostCallback savedNewHostCallback /* out */
             )
         {
             lock (staticSyncRoot) /* TRANSACTIONAL */
@@ -65930,7 +65930,7 @@ namespace Eagle._Components.Public
         /// upon return.
         /// </param>
         internal static void EndNoNewHostCallback(
-            ref NewHostCallback savedNewHostCallback
+            ref NewHostCallback savedNewHostCallback /* in, out */
             )
         {
             lock (staticSyncRoot) /* TRANSACTIONAL */
@@ -71090,7 +71090,7 @@ namespace Eagle._Components.Public
         /// The immutable state value to restore.
         /// </param>
         private void EndMutableExecution(
-            bool savedImmutable
+            bool savedImmutable /* in */
             )
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -73897,7 +73897,7 @@ namespace Eagle._Components.Public
         /// in effect prior to this call.
         /// </param>
         internal void BeginPendingPackageIndexes(
-            out InterpreterStateFlags savedInterpreterStateFlags
+            out InterpreterStateFlags savedInterpreterStateFlags /* out */
             )
         {
             savedInterpreterStateFlags = ContextInterpreterStateFlags;
@@ -73916,7 +73916,7 @@ namespace Eagle._Components.Public
         /// will be reset to <see cref="InterpreterStateFlags.None" />.
         /// </param>
         internal void EndPendingPackageIndexes(
-            ref InterpreterStateFlags savedInterpreterStateFlags
+            ref InterpreterStateFlags savedInterpreterStateFlags /* in, out */
             )
         {
             ContextInterpreterStateFlags = savedInterpreterStateFlags;
@@ -129885,7 +129885,7 @@ namespace Eagle._Components.Public
         /// before debugging was disabled.
         /// </param>
         private void BeginNoDebugger(
-            out EngineFlags savedEngineFlags
+            out EngineFlags savedEngineFlags /* out */
             )
         {
             savedEngineFlags = ContextEngineFlags;
@@ -129902,7 +129902,7 @@ namespace Eagle._Components.Public
         /// The engine flags to restore, as previously saved.
         /// </param>
         private void EndNoDebugger(
-            ref EngineFlags savedEngineFlags
+            ref EngineFlags savedEngineFlags /* in, out */
             )
         {
             EngineFlags disableEngineFlags = EngineFlags.None;
@@ -131800,7 +131800,7 @@ namespace Eagle._Components.Public
         /// <c>EndNoConsoleCancelEventHandler</c> call.
         /// </param>
         internal static void BeginNoConsoleCancelEventHandler(
-            ref int savedCancelViaConsole
+            ref int savedCancelViaConsole /* in, out */
             )
         {
             savedCancelViaConsole = Interlocked.Exchange(
@@ -131820,7 +131820,7 @@ namespace Eagle._Components.Public
         /// parameter is reset to zero before returning.
         /// </param>
         internal static void EndNoConsoleCancelEventHandler(
-            ref int savedCancelViaConsole
+            ref int savedCancelViaConsole /* in, out */
             )
         {
             /* IGNORED */
@@ -137262,7 +137262,7 @@ namespace Eagle._Components.Public
         /// flags.
         /// </param>
         private void BeginPendingPolicies(
-            out InterpreterStateFlags savedInterpreterStateFlags
+            out InterpreterStateFlags savedInterpreterStateFlags /* out */
             )
         {
             savedInterpreterStateFlags = ContextInterpreterStateFlags;
@@ -137282,7 +137282,7 @@ namespace Eagle._Components.Public
         /// to <see cref="InterpreterStateFlags.None" /> before returning.
         /// </param>
         private void EndPendingPolicies(
-            ref InterpreterStateFlags savedInterpreterStateFlags
+            ref InterpreterStateFlags savedInterpreterStateFlags /* in, out */
             )
         {
             ContextInterpreterStateFlags = savedInterpreterStateFlags;
@@ -137712,7 +137712,7 @@ namespace Eagle._Components.Public
         /// the pending traces flag was set, for later restoration.
         /// </param>
         private void BeginPendingTraces(
-            out InterpreterStateFlags savedInterpreterStateFlags
+            out InterpreterStateFlags savedInterpreterStateFlags /* out */
             )
         {
             savedInterpreterStateFlags = ContextInterpreterStateFlags;
@@ -137730,7 +137730,7 @@ namespace Eagle._Components.Public
         /// reset to <see cref="InterpreterStateFlags.None" />.
         /// </param>
         private void EndPendingTraces(
-            ref InterpreterStateFlags savedInterpreterStateFlags
+            ref InterpreterStateFlags savedInterpreterStateFlags /* in, out */
             )
         {
             ContextInterpreterStateFlags = savedInterpreterStateFlags;
@@ -143068,7 +143068,7 @@ namespace Eagle._Components.Public
         /// global cancellation was suppressed, for later restoration.
         /// </param>
         private void BeginNoGlobalCancel(
-            out EngineFlags savedEngineFlags
+            out EngineFlags savedEngineFlags /* out */
             )
         {
             savedEngineFlags = ContextEngineFlags;
@@ -143087,7 +143087,7 @@ namespace Eagle._Components.Public
         /// was suppressed; upon return, this is reset to no flags.
         /// </param>
         private void EndNoGlobalCancel(
-            ref EngineFlags savedEngineFlags
+            ref EngineFlags savedEngineFlags /* in, out */
             )
         {
             EngineFlags disableEngineFlags = EngineFlags.None;
@@ -143142,7 +143142,7 @@ namespace Eagle._Components.Public
         /// external execution.
         /// </returns>
         internal int EndExternalExecution(
-            EngineFlags savedEngineFlags
+            EngineFlags savedEngineFlags /* in */
             )
         {
 #if THREADING
@@ -143232,7 +143232,7 @@ namespace Eagle._Components.Public
         /// <c>BeginNestedExecution</c>.
         /// </param>
         internal void EndNestedExecution(
-            int savedPreviousLevels
+            int savedPreviousLevels /* in */
             )
         {
 #if THREADING
@@ -146431,7 +146431,7 @@ namespace Eagle._Components.Public
         /// effect prior to disabling caching.
         /// </param>
         internal void BeginProcedureBodyNoCaching(
-            ref EngineFlags savedEngineFlags
+            ref EngineFlags savedEngineFlags /* out */
             )
         {
             EngineFlags enableEngineFlags = EngineFlags.None;
@@ -146465,7 +146465,7 @@ namespace Eagle._Components.Public
         /// return, this parameter is reset to <see cref="EngineFlags.None" />.
         /// </param>
         internal void EndProcedureBodyNoCaching(
-            ref EngineFlags savedEngineFlags
+            ref EngineFlags savedEngineFlags /* in, out */
             )
         {
             EngineFlags disableEngineFlags = EngineFlags.None;
@@ -152755,6 +152755,94 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         /// <summary>
+        /// This method temporarily enables procedures being flagged as part of the
+        /// script library, saving the previous procedure flags so that they can be
+        /// restored later.
+        /// </summary>
+        /// <param name="savedProcedureFlags">
+        /// Upon return, this parameter receives the procedure flags that were in
+        /// effect prior to this call.
+        /// </param>
+        internal void BeginLibraryProcedures(
+            out ProcedureFlags savedProcedureFlags /* out */
+            )
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                savedProcedureFlags = ContextProcedureFlags;
+                ContextProcedureFlags |= ProcedureFlags.Library;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        /// <summary>
+        /// This method restores the procedure flags that were saved by a prior
+        /// call to <c>BeginLibraryProcedures</c>, ending the temporary flagging
+        /// of procedures as part of the script library.
+        /// </summary>
+        /// <param name="savedProcedureFlags">
+        /// The previously saved procedure flags to restore.  Upon return, this
+        /// parameter is reset to <see cref="ProcedureFlags.None" />.
+        /// </param>
+        internal void EndLibraryProcedures(
+            ref ProcedureFlags savedProcedureFlags /* in, out */
+            )
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                ContextProcedureFlags = savedProcedureFlags;
+                savedProcedureFlags = ProcedureFlags.None;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        /// <summary>
+        /// This method temporarily enables procedures being flagged as part of a
+        /// loaded package, saving the previous procedure flags so that they can be
+        /// restored later.
+        /// </summary>
+        /// <param name="savedProcedureFlags">
+        /// Upon return, this parameter receives the procedure flags that were in
+        /// effect prior to this call.
+        /// </param>
+        internal void BeginPackageProcedures(
+            out ProcedureFlags savedProcedureFlags /* out */
+            )
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                savedProcedureFlags = ContextProcedureFlags;
+                ContextProcedureFlags |= ProcedureFlags.Package;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        /// <summary>
+        /// This method restores the procedure flags that were saved by a prior
+        /// call to <c>BeginPackageProcedures</c>, ending the temporary flagging
+        /// of procedures as part of a script package.
+        /// </summary>
+        /// <param name="savedProcedureFlags">
+        /// The previously saved procedure flags to restore.  Upon return, this
+        /// parameter is reset to <see cref="ProcedureFlags.None" />.
+        /// </param>
+        internal void EndPackageProcedures(
+            ref ProcedureFlags savedProcedureFlags /* in, out */
+            )
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                ContextProcedureFlags = savedProcedureFlags;
+                savedProcedureFlags = ProcedureFlags.None;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        /// <summary>
         /// This method temporarily enables loading plugins on any thread,
         /// saving the previous plugin flags so that they can be restored later.
         /// </summary>
@@ -152763,7 +152851,7 @@ namespace Eagle._Components.Public
         /// effect prior to this call.
         /// </param>
         internal void BeginLoadOnAnyThread(
-            out PluginFlags savedPluginFlags
+            out PluginFlags savedPluginFlags /* out */
             )
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -152785,7 +152873,7 @@ namespace Eagle._Components.Public
         /// parameter is reset to <see cref="PluginFlags.None" />.
         /// </param>
         internal void EndLoadOnAnyThread(
-            ref PluginFlags savedPluginFlags
+            ref PluginFlags savedPluginFlags /* in, out */
             )
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -152939,7 +153027,7 @@ namespace Eagle._Components.Public
         /// effect prior to this call.
         /// </param>
         internal void BeginNoIsolatedPlugins(
-            ref PluginFlags savedPluginFlags
+            ref PluginFlags savedPluginFlags /* out */
             )
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -152961,7 +153049,7 @@ namespace Eagle._Components.Public
         /// parameter is reset to <see cref="PluginFlags.None" />.
         /// </param>
         internal void EndNoIsolatedPlugins(
-            ref PluginFlags savedPluginFlags
+            ref PluginFlags savedPluginFlags /* in, out */
             )
         {
             lock (syncRoot) /* TRANSACTIONAL */

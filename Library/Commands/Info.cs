@@ -330,8 +330,11 @@ namespace Eagle._Commands
                                         if (arguments.Count == 2)
                                         {
 #if SHELL
-                                            result = new StringList(
-                                                interpreter.SavedShellArguments);
+                                            IList<string> shellArguments =
+                                                interpreter.SavedShellArguments;
+
+                                            result = (shellArguments != null) ?
+                                                new StringList(shellArguments) : null;
 #else
                                             result = "not implemented";
                                             code = ReturnCode.Error;

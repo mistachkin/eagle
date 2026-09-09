@@ -390,7 +390,7 @@ namespace eval ::Eagle {
     #       core script library (sub-)package.
     #
     if {[isEagle]} then {
-      lappend baseCommand -withinfo true -library true --
+      lappend baseCommand -withinfo true -library true -package true --
     }
 
     #
